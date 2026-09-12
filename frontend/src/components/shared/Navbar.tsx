@@ -1,0 +1,331 @@
+import React, { useState, useRef, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import {
+  LogOut,
+  User as UserIcon,
+  LayoutDashboard,
+  PlusCircle,
+  ListFilter,
+  Layers,
+  MapPin,
+  Settings,
+  BarChart3,
+  FileText,
+  ChevronDown,
+  Home,
+  ShieldCheck,
+  Check,
+} from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import type { UserRole } from '../../types'
+
+export const Navbar: React.FC = () => {
+  const { user, role, logout, switchRoleForDemo } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+
+  // User Dropdown state
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleRoleSwitch = (newRole: UserRole) => {
+    switchRoleForDemo(newRole)
+    setDropdownOpen(false)
+    if (newRole === 'generator') {
+      navigate('/generator/dashboard')
+    } else if (newRole === 'facility') {
+      navigate('/facility/dashboard')
+    } else if (newRole === 'municipality') {
+      navigate('/municipal/overview')
+    }
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
+  return (
+    <header className="sticky top-0 z-40 glass-panel border-b border-slate-200/80 px-4 sm:px-6 py-2.5 shadow-xs">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+        {/* Left Section: Brand Logo & Role Pill */}
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="h-10 w-10 rounded-xl p-0.5 bg-emerald-500/10 border border-emerald-300 flex items-center justify-center overflow-hidden shadow-xs group-hover:scale-105 transition-transform">
+              <img src="/logo.png" alt="EcoTrace Logo" className="h-full w-full object-contain" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-base tracking-tight text-slate-900 font-heading">
+                  EcoTrace
+                </span>
+                <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                  {role}
+                </span>
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium hidden sm:block">
+                Waste-to-Carbon Value Chain
+              </p>
+            </div>
+          </Link>
+        </div>
+
+        {/* Center Section: Role-Specific Navigation Links */}
+        <nav className="hidden lg:flex items-center gap-1.5 overflow-x-auto py-0.5">
+          <Link
+            to="/home"
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              location.pathname === '/home'
+                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+            }`}
+          >
+            <Home className="h-3.5 w-3.5" />
+            Hero Section
+          </Link>
+
+          {role === 'generator' && (
+            <>
+              <Link
+                to="/generator/dashboard"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/generator/dashboard'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Dashboard
+              </Link>
+              <Link
+                to="/generator/listings/new"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/generator/listings/new'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <PlusCircle className="h-3.5 w-3.5" />
+                Post Listing
+              </Link>
+              <Link
+                to="/generator/listings"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/generator/listings'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <ListFilter className="h-3.5 w-3.5" />
+                My Listings
+              </Link>
+            </>
+          )}
+
+          {role === 'facility' && (
+            <>
+              <Link
+                to="/facility/dashboard"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/facility/dashboard'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <LayoutDashboard className="h-3.5 w-3.5" />
+                Dashboard
+              </Link>
+              <Link
+                to="/facility/matches"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/facility/matches'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                Incoming Matches
+              </Link>
+              <Link
+                to={`/facility/routes/${new Date().toISOString().split('T')[0]}`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname.includes('/facility/routes')
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5" />
+                Route View
+              </Link>
+              <Link
+                to="/facility/settings"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/facility/settings'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </Link>
+            </>
+          )}
+
+          {role === 'municipality' && (
+            <>
+              <Link
+                to="/municipal/overview"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/municipal/overview'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                Overview
+              </Link>
+              <Link
+                to="/municipal/reports"
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  location.pathname === '/municipal/reports'
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
+                }`}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Reports & Export
+              </Link>
+            </>
+          )}
+        </nav>
+
+        {/* Right Section: Demo Switcher & Avatar Dropdown */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Quick Demo Persona Switcher */}
+          <div className="hidden sm:flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200">
+            <button
+              onClick={() => handleRoleSwitch('generator')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                role === 'generator'
+                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Generator
+            </button>
+            <button
+              onClick={() => handleRoleSwitch('facility')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                role === 'facility'
+                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Facility
+            </button>
+            <button
+              onClick={() => handleRoleSwitch('municipality')}
+              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                role === 'municipality'
+                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Municipality
+            </button>
+          </div>
+
+          {/* User Profile Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              className="flex items-center gap-2 p-1.5 pl-2.5 pr-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all text-xs font-semibold text-slate-800 shadow-2xs cursor-pointer"
+            >
+              <div className="h-6 w-6 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-[11px]">
+                {user?.name ? user.name.charAt(0) : 'U'}
+              </div>
+              <span className="max-w-[100px] truncate hidden md:inline">{user?.name?.split(' ')[0] || 'User'}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+            </button>
+
+            {/* Dropdown Menu */}
+            {dropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200 shadow-xl p-2 z-50 animate-in fade-in zoom-in-95 space-y-1">
+                {/* User Info Header */}
+                <div className="p-2 border-b border-slate-100 text-xs">
+                  <p className="font-bold text-slate-900 truncate">{user?.name}</p>
+                  <p className="text-[11px] text-slate-400 truncate">{user?.email}</p>
+                  <div className="flex items-center gap-1 mt-1 text-[10px] text-emerald-700 font-bold uppercase">
+                    <ShieldCheck className="h-3 w-3" />
+                    <span>Role: {role}</span>
+                  </div>
+                </div>
+
+                {/* Mobile Role Switch options */}
+                <div className="sm:hidden p-1 space-y-1 border-b border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-2">
+                    Switch Persona:
+                  </span>
+                  {(['generator', 'facility', 'municipality'] as UserRole[]).map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => handleRoleSwitch(r)}
+                      className={`w-full text-left px-2 py-1 text-xs font-semibold rounded-lg capitalize flex items-center justify-between ${
+                        role === r ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600'
+                      }`}
+                    >
+                      <span>{r}</span>
+                      {role === r && <Check className="h-3.5 w-3.5 text-emerald-600" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Menu Items */}
+                <Link
+                  to="/profile"
+                  onClick={() => setDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <UserIcon className="h-3.5 w-3.5 text-slate-400" />
+                  <span>My Profile &amp; Location</span>
+                </Link>
+
+                <Link
+                  to="/home"
+                  onClick={() => setDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <Home className="h-3.5 w-3.5 text-slate-400" />
+                  <span>View Home Page Hero</span>
+                </Link>
+
+                <div className="border-t border-slate-100 pt-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="h-3.5 w-3.5 text-red-500" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  )
+}
+
+export default Navbar
