@@ -1,0 +1,770 @@
+{
+	"info": {
+		"_postman_id": "8f3950aa-c852-47de-9b2f-763b3be9d9a1",
+		"name": "Waste-to-Carbon Value Chain Tracker API",
+		"description": "Complete demo flow covering User Authentication, Waste Listings, Proximity & Compatibility Matching, Match Confirmation & Processing, Google OR-Tools Route Optimization, Carbon Value Records, and Municipal/Generator/Facility Dashboards.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://127.0.0.1:8000",
+			"type": "string"
+		},
+		{
+			"key": "generatorToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "facilityToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "generatorId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "facilityOperatorId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "facilityId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "listingId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "matchId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Auth - Register Generator",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    if (d && d.user && d.user.id) {",
+							"        pm.collectionVariables.set(\"generatorId\", d.user.id);",
+							"    }",
+							"    if (d && (d.token || d.accessToken)) {",
+							"        pm.collectionVariables.set(\"generatorToken\", d.token || d.accessToken);",
+							"    }",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Demo Organic Agro Farm\",\n    \"email\": \"generator.demo.{{$timestamp}}@example.com\",\n    \"password\": \"Password123!\",\n    \"role\": \"generator\",\n    \"locationLat\": 13.0645,\n    \"locationLng\": 77.5852\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "2. Auth - Register Facility Operator",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    if (d && d.user && d.user.id) {",
+							"        pm.collectionVariables.set(\"facilityOperatorId\", d.user.id);",
+							"    }",
+							"    if (d && (d.token || d.accessToken)) {",
+							"        pm.collectionVariables.set(\"facilityToken\", d.token || d.accessToken);",
+							"    }",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"name\": \"Demo Bio-Energy Operator\",\n    \"email\": \"facility.demo.{{$timestamp}}@example.com\",\n    \"password\": \"Password123!\",\n    \"role\": \"facility\",\n    \"locationLat\": 13.0285,\n    \"locationLng\": 77.5197\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "3. Auth - Login Generator",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.collectionVariables.set(\"generatorToken\", d.token || d.accessToken);",
+							"    pm.collectionVariables.set(\"generatorId\", d.user.id);",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"greenharvest@example.com\",\n    \"password\": \"Password123!\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "4. Auth - Login Facility Operator",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.collectionVariables.set(\"facilityToken\", d.token || d.accessToken);",
+							"    pm.collectionVariables.set(\"facilityOperatorId\", d.user.id);",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"email\": \"cleanbio@example.com\",\n    \"password\": \"Password123!\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "5. Facilities - List Facilities",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var list = res.data ? res.data : res;",
+							"    pm.expect(list.length).to.be.above(0);",
+							"    var cleanBioFac = list.find(function(f) { return f.operator && f.operator.email === 'cleanbio@example.com'; }) || list[0];",
+							"    pm.collectionVariables.set(\"facilityId\", cleanBioFac.id);",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/facilities",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"facilities"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "6. Waste Listings - Create Listing",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.collectionVariables.set(\"listingId\", d.id);",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"wasteType\": \"food\",\n    \"quantityTons\": 12.0,\n    \"moistureContent\": 65.0,\n    \"locationLat\": 13.0645,\n    \"locationLng\": 77.5852,\n    \"availableFrom\": \"2026-09-15T08:00:00.000Z\",\n    \"availableTo\": \"2026-09-20T18:00:00.000Z\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/waste-listings",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"waste-listings"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "7. Matches - Find Candidates for Listing",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var list = res.data ? res.data : res;",
+							"    pm.expect(list.length).to.be.above(0);",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/matches/find-candidates/{{listingId}}",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"matches",
+						"find-candidates",
+						"{{listingId}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "8. Matches - Create Match",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.collectionVariables.set(\"matchId\", d.id);",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"listingId\": {{listingId}},\n    \"facilityId\": {{facilityId}},\n    \"matchedQuantityTons\": 12.0,\n    \"matchScore\": 95.0\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/matches",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"matches"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "9. Matches - Confirm Match (as Facility)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d.status).to.eql(\"scheduled\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{facilityToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/matches/{{matchId}}/confirm",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"matches",
+						"{{matchId}}",
+						"confirm"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "10. Routes - Generate Optimized TSP Route",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"totalDistanceKm\");",
+							"    pm.expect(d).to.have.property(\"stopOrder\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer {{facilityToken}}"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"facilityId\": {{facilityId}},\n    \"collectionDate\": \"2026-09-16\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/routes/generate",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"routes",
+						"generate"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "11. Matches - Process Match & Issue Carbon Record",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"carbonRecord\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{facilityToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/matches/{{matchId}}/process",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"matches",
+						"{{matchId}}",
+						"process"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "12. Carbon Records - Get Summary",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"totalRecordsCount\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/carbon-records/summary",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"carbon-records",
+						"summary"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "13. Dashboard - Generator Summary",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"totalListings\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dashboard/generator/{{generatorId}}/summary",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dashboard",
+						"generator",
+						"{{generatorId}}",
+						"summary"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "14. Dashboard - Facility Summary",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"capacityTonsPerWeek\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{facilityToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dashboard/facility/{{facilityId}}/summary",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dashboard",
+						"facility",
+						"{{facilityId}}",
+						"summary"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "15. Dashboard - Municipal Overview Summary",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"totalListings\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dashboard/municipal/summary",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dashboard",
+						"municipal",
+						"summary"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "16. Dashboard - Municipal Map Data (Leaflet Format)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"try {",
+							"    var res = pm.response.json();",
+							"    var d = res.data ? res.data : res;",
+							"    pm.expect(d).to.have.property(\"listings\");",
+							"    pm.expect(d).to.have.property(\"facilities\");",
+							"} catch(e) {}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer {{generatorToken}}"
+					}
+				],
+				"url": {
+					"raw": "{{baseUrl}}/dashboard/municipal/map-data",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"dashboard",
+						"municipal",
+						"map-data"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
