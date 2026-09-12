@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LogOut,
@@ -15,6 +16,8 @@ import {
   Home,
   ShieldCheck,
   Check,
+  X,
+  AlertTriangle,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import type { UserRole } from '../../types'
@@ -26,6 +29,7 @@ export const Navbar: React.FC = () => {
 
   // User Dropdown state
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [showSignoutModal, setShowSignoutModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown on outside click
@@ -51,7 +55,13 @@ export const Navbar: React.FC = () => {
     }
   }
 
-  const handleLogout = () => {
+  const handleSignoutClick = () => {
+    setDropdownOpen(false)
+    setShowSignoutModal(true)
+  }
+
+  const handleConfirmLogout = () => {
+    setShowSignoutModal(false)
     logout()
     navigate('/login')
   }
@@ -312,7 +322,7 @@ export const Navbar: React.FC = () => {
 
                 <div className="border-t border-slate-100 pt-1">
                   <button
-                    onClick={handleLogout}
+                    onClick={handleSignoutClick}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                   >
                     <LogOut className="h-3.5 w-3.5 text-red-500" />
@@ -324,6 +334,60 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Sign Out Confirmation Modal rendered at document body level for perfect viewport centering */}
+      {showSignoutModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+            <div
+              className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setShowSignoutModal(false)}
+                className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* Icon & Heading */}
+              <div className="flex items-start gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-red-100 border border-red-200 flex items-center justify-center shrink-0 text-red-600 shadow-xs">
+                  <AlertTriangle className="h-6 w-6" />
+                </div>
+                <div className="space-y-1 pr-4">
+                  <h3 className="text-lg font-extrabold text-slate-900 font-heading">
+                    Confirm Sign Out
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Are you sure you want to sign out of <span className="font-semibold text-slate-700">EcoTrace</span>? You will need to enter your credentials to access your dashboard again.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSignoutModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmLogout}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 active:scale-95 transition-all shadow-md hover:shadow-red-500/20 cursor-pointer"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Yes, Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </header>
   )
 }

@@ -21,6 +21,24 @@ export class RegisterDto {
     @MinLength(6)
     password: string;
 
+    @ApiPropertyOptional({ description: 'User phone number', example: '+91 9876543210' })
+    @IsOptional()
+    @IsString()
+    @MaxLength(50)
+    phone?: string;
+
+    @ApiPropertyOptional({ description: 'User state or region', example: 'Karnataka' })
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    state?: string;
+
+    @ApiPropertyOptional({ description: 'User city or district', example: 'Bengaluru' })
+    @IsOptional()
+    @IsString()
+    @MaxLength(100)
+    city?: string;
+
     @ApiPropertyOptional({ description: 'User role', enum: UserRole, default: UserRole.GENERATOR })
     @IsOptional()
     @IsEnum(UserRole)

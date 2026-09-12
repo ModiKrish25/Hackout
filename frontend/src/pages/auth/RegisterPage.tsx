@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
-  User as UserIcon,
-  Mail,
-  Lock,
-  MapPin,
   ArrowRight,
   AlertCircle,
   Eye,
   EyeOff,
-  Building,
-  Phone,
   Crosshair,
   CheckCircle2,
-  Home,
+  Factory,
+  Landmark,
+  Sprout,
 } from 'lucide-react'
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../../context/AuthContext'
+import { authService } from '../../services/auth.service'
 import toast from 'react-hot-toast'
 import type { UserRole } from '../../types'
 
@@ -30,18 +27,87 @@ const STATE_COORDINATES: Record<string, { lat: number; lng: number; defaultCity:
   Delhi: { lat: 28.6139, lng: 77.209, defaultCity: 'New Delhi' },
   Gujarat: { lat: 23.0225, lng: 72.5714, defaultCity: 'Ahmedabad' },
   Telangana: { lat: 17.385, lng: 78.4867, defaultCity: 'Hyderabad' },
+  'Andhra Pradesh': { lat: 17.6868, lng: 83.2185, defaultCity: 'Visakhapatnam' },
   Punjab: { lat: 30.7333, lng: 76.7794, defaultCity: 'Chandigarh' },
+  Haryana: { lat: 28.4595, lng: 77.0266, defaultCity: 'Gurugram' },
   'Uttar Pradesh': { lat: 26.8467, lng: 80.9462, defaultCity: 'Lucknow' },
+  Rajasthan: { lat: 26.9124, lng: 75.7873, defaultCity: 'Jaipur' },
+  'Madhya Pradesh': { lat: 23.2599, lng: 77.4126, defaultCity: 'Bhopal' },
   Kerala: { lat: 8.5241, lng: 76.9366, defaultCity: 'Thiruvananthapuram' },
   'West Bengal': { lat: 22.5726, lng: 88.3639, defaultCity: 'Kolkata' },
+  Bihar: { lat: 25.5941, lng: 85.1376, defaultCity: 'Patna' },
+  Odisha: { lat: 20.2961, lng: 85.8245, defaultCity: 'Bhubaneswar' },
+  Goa: { lat: 15.4909, lng: 73.8278, defaultCity: 'Panaji' },
+  Uttarakhand: { lat: 30.3165, lng: 78.0322, defaultCity: 'Dehradun' },
   Other: { lat: 12.9716, lng: 77.5946, defaultCity: 'Bengaluru' },
 }
 
-// Custom Leaflet DivIcon for the interactive click-to-pin picker
+// Reverse geocode: Coordinates -> City & State
+const reverseGeocodeLocation = async (lat: number, lng: number) => {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      {
+        headers: {
+          'Accept-Language': 'en',
+        },
+      }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      if (data && data.address) {
+        const addr = data.address
+        const detectedCity =
+          addr.city ||
+          addr.town ||
+          addr.municipality ||
+          addr.village ||
+          addr.suburb ||
+          addr.county ||
+          addr.state_district ||
+          ''
+        const detectedState = addr.state || ''
+        return { city: detectedCity, state: detectedState }
+      }
+    }
+  } catch (err) {
+    console.warn('Reverse geocoding error:', err)
+  }
+  return null
+}
+
+// Forward geocode: City & State -> Coordinates
+const forwardGeocodeCity = async (city: string, state: string) => {
+  if (!city.trim()) return null
+  try {
+    const query = `${city.trim()}, ${state ? state + ', ' : ''}India`
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`,
+      {
+        headers: {
+          'Accept-Language': 'en',
+        },
+      }
+    )
+    if (res.ok) {
+      const data = await res.json()
+      if (data && data.length > 0) {
+        return {
+          lat: Number(parseFloat(data[0].lat).toFixed(5)),
+          lng: Number(parseFloat(data[0].lon).toFixed(5)),
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Forward geocoding error:', err)
+  }
+  return null
+}
+
 const createPickerPin = (role: UserRole) => {
   const bg =
     role === 'facility'
-      ? 'bg-blue-600'
+      ? 'bg-emerald-700'
       : role === 'municipality'
       ? 'bg-purple-600'
       : 'bg-emerald-600'
@@ -51,16 +117,16 @@ const createPickerPin = (role: UserRole) => {
     html: `
       <div class="relative flex items-center justify-center cursor-pointer">
         <div class="absolute -inset-2 rounded-full ${bg}/30 animate-ping"></div>
-        <div class="h-9 w-9 rounded-2xl ${bg} text-white flex items-center justify-center shadow-lg border-2 border-white transform hover:scale-110 transition-transform">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="h-8 w-8 rounded-2xl ${bg} text-white flex items-center justify-center shadow-lg border-2 border-white transform hover:scale-110 transition-transform">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
             <circle cx="12" cy="10" r="3"/>
           </svg>
         </div>
       </div>
     `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
   })
 }
 
@@ -84,7 +150,6 @@ const MapRecenter: React.FC<{ coords: [number, number] }> = ({ coords }) => {
 }
 
 export const RegisterPage: React.FC = () => {
-  // USER REQUIREMENT: Register as Generator / Facility / Municipality
   const [role, setRole] = useState<UserRole>('generator')
 
   // Contact Inputs
@@ -104,7 +169,7 @@ export const RegisterPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  // Validation errors
+  // Validation & Error states
   const [nameError, setNameError] = useState('')
   const [phoneError, setPhoneError] = useState('')
   const [emailError, setEmailError] = useState('')
@@ -112,53 +177,115 @@ export const RegisterPage: React.FC = () => {
   const [confirmPasswordError, setConfirmPasswordError] = useState('')
   const [cityError, setCityError] = useState('')
   const [coordsError, setCoordsError] = useState('')
-
+  const [apiError, setApiError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { register } = useAuth()
   const navigate = useNavigate()
 
-  // Handle state change with auto city and coordinate suggestions
-  const handleStateChange = (selectedState: string) => {
+  // Handler: When user selects State from dropdown
+  const handleStateChange = async (selectedState: string) => {
     setStateName(selectedState)
     const defaults = STATE_COORDINATES[selectedState]
     if (defaults) {
-      if (!cityName || cityName === 'Bengaluru') {
-        setCityName(defaults.defaultCity)
-      }
+      setCityName(defaults.defaultCity)
+      setCityError('')
       setLatitude(defaults.lat)
       setLongitude(defaults.lng)
+      setCoordsError('')
     }
   }
 
-  // Use Browser GPS Location
+  // Effect: When user manually types in City name, geocode and move map pin
+  useEffect(() => {
+    if (!cityName.trim() || cityName.trim().length < 3) return
+
+    const timer = setTimeout(async () => {
+      const coords = await forwardGeocodeCity(cityName, stateName)
+      if (coords) {
+        setLatitude(coords.lat)
+        setLongitude(coords.lng)
+        setCoordsError('')
+      }
+    }, 650)
+
+    return () => clearTimeout(timer)
+  }, [cityName, stateName])
+
+  // Handler: When user clicks GPS button
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       toast.error('Geolocation is not supported by your browser')
       return
     }
 
-    toast.loading('Detecting GPS location...', { id: 'gps-loc' })
+    const toastId = toast.loading('Acquiring precise GPS location...')
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         const lat = Number(pos.coords.latitude.toFixed(5))
         const lng = Number(pos.coords.longitude.toFixed(5))
         setLatitude(lat)
         setLongitude(lng)
         setCoordsError('')
-        toast.success(`Coordinates pinned: ${lat}, ${lng}`, { id: 'gps-loc' })
+
+        // Reverse-geocode to auto-populate City and State
+        const geoInfo = await reverseGeocodeLocation(lat, lng)
+        if (geoInfo) {
+          if (geoInfo.city) {
+            setCityName(geoInfo.city)
+            setCityError('')
+          }
+          if (geoInfo.state) {
+            const matchedState = Object.keys(STATE_COORDINATES).find(
+              (s) =>
+                s.toLowerCase() === geoInfo.state.toLowerCase() ||
+                geoInfo.state.toLowerCase().includes(s.toLowerCase())
+            )
+            if (matchedState) {
+              setStateName(matchedState)
+            }
+          }
+          toast.success(`GPS set: ${geoInfo.city || 'Location'} (${lat}, ${lng})`, { id: toastId })
+        } else {
+          toast.success(`Location set: ${lat}, ${lng}`, { id: toastId })
+        }
       },
-      () => {
-        toast.error('Unable to retrieve GPS. Click on the map to pin your location.', { id: 'gps-loc' })
+      (err) => {
+        toast.error(`GPS Error: ${err.message}`, { id: toastId })
       },
       { enableHighAccuracy: true, timeout: 8000 }
     )
   }
 
-  // Field Validators
+  // Handler: When user clicks anywhere on Leaflet map
+  const handleMapPinPick = async (lat: number, lng: number) => {
+    setLatitude(lat)
+    setLongitude(lng)
+    setCoordsError('')
+
+    // Reverse-geocode to sync City and State input fields
+    const geoInfo = await reverseGeocodeLocation(lat, lng)
+    if (geoInfo) {
+      if (geoInfo.city) {
+        setCityName(geoInfo.city)
+        setCityError('')
+      }
+      if (geoInfo.state) {
+        const matchedState = Object.keys(STATE_COORDINATES).find(
+          (s) =>
+            s.toLowerCase() === geoInfo.state.toLowerCase() ||
+            geoInfo.state.toLowerCase().includes(s.toLowerCase())
+        )
+        if (matchedState) {
+          setStateName(matchedState)
+        }
+      }
+    }
+  }
+
   const validateName = (val: string): boolean => {
     if (!val.trim()) {
-      setNameError('Full Name or Organization is required')
+      setNameError('Full name or Organization name is required')
       return false
     }
     if (val.trim().length < 2) {
@@ -170,13 +297,8 @@ export const RegisterPage: React.FC = () => {
   }
 
   const validatePhone = (val: string): boolean => {
-    if (!val.trim()) {
-      setPhoneError('Contact phone number is required')
-      return false
-    }
-    const cleanPhone = val.replace(/[\s\-\(\)\+]/g, '')
-    if (cleanPhone.length < 7 || cleanPhone.length > 15) {
-      setPhoneError('Please enter a valid phone number (7-15 digits)')
+    if (val.trim() && val.trim().length < 7) {
+      setPhoneError('Please enter a valid phone number')
       return false
     }
     setPhoneError('')
@@ -250,7 +372,6 @@ export const RegisterPage: React.FC = () => {
     return true
   }
 
-  // Handle Form Submit with Auto-login and Redirect
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -268,24 +389,28 @@ export const RegisterPage: React.FC = () => {
     }
 
     setIsSubmitting(true)
+    setApiError(null)
 
     try {
-      // Auto-login happens inside context register function
-      const newUser = await register({
+      const payload = {
         name,
         email,
         password,
         role,
-        phone,
+        phone: phone.trim() || undefined,
         state: stateName,
         city: cityName,
-        location_lat: latitude,
-        location_lng: longitude,
-      })
+        locationLat: latitude,
+        locationLng: longitude,
+      }
 
-      toast.success(`Account created! Welcome, ${newUser.name} (${role.toUpperCase()})`)
+      // 1. Call auth service
+      const session = await authService.register(payload)
+      // 2. Sync to React auth context
+      await register(payload)
 
-      // USER REQUIREMENT: Then Registered User should be entered as his selected role
+      toast.success(`Account created! Welcome, ${session.user.name} (${role.toUpperCase()})`)
+
       if (role === 'generator') {
         navigate('/generator/dashboard', { replace: true })
       } else if (role === 'facility') {
@@ -293,449 +418,409 @@ export const RegisterPage: React.FC = () => {
       } else if (role === 'municipality') {
         navigate('/municipal/overview', { replace: true })
       }
-    } catch {
-      toast.error('Registration failed. Please try again.')
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        'Registration failed. Please verify your details.'
+      setApiError(msg)
+      toast.error(msg)
     } finally {
       setIsSubmitting(false)
     }
   }
 
   return (
-    <div className="min-h-screen eco-grid-bg flex flex-col items-center justify-center p-4 sm:p-6 text-slate-800 font-sans relative">
-      {/* Top Navigation */}
-      <div className="w-full max-w-2xl flex items-center justify-between pb-4">
-        <Link
-          to="/home"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-emerald-700 bg-white/80 hover:bg-white px-3 py-1.5 rounded-lg border border-slate-200 transition-all shadow-2xs"
-        >
-          <Home className="h-3.5 w-3.5 text-emerald-600" />
-          <span>Home Page Hero</span>
-        </Link>
-        <Link
-          to="/login"
-          className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
-        >
-          Already registered? Sign in &rarr;
-        </Link>
-      </div>
+    <div className="h-screen w-full flex flex-col lg:flex-row bg-[#081b11] font-sans antialiased text-slate-100 overflow-hidden">
+      {/* LEFT SIDE: Fixed Brand & Value Proposition (Dark Forest Green) */}
+      <div className="w-full lg:w-5/12 h-full max-h-screen p-8 sm:p-12 lg:p-16 flex flex-col justify-between relative overflow-hidden bg-[#071c12] shrink-0 border-b lg:border-b-0 lg:border-r border-emerald-900/40 select-none">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
-      <div className="w-full max-w-2xl space-y-6">
         {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="inline-flex h-16 w-16 rounded-2xl p-1 bg-white border border-emerald-300 items-center justify-center shadow-md shadow-emerald-500/10 overflow-hidden">
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-1 flex items-center justify-center shadow-inner">
             <img src="/logo.png" alt="EcoTrace Logo" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-heading">
-            Register for EcoTrace
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500">
-            Join the decentralized waste-to-carbon accounting and off-take network
-          </p>
+          <span className="font-extrabold text-xl tracking-tight text-white font-heading">
+            EcoTrace
+          </span>
         </div>
 
-        {/* Main Register Card */}
-        <div className="glass-panel rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl border border-slate-200/90 bg-white/90 backdrop-blur-md">
-          {/* USER REQUIREMENT: Register as Generator / Facility / Municipality Buttons */}
+        {/* Hero Copy */}
+        <div className="relative z-10 my-10 lg:my-0 max-w-md space-y-6">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.15] font-heading">
+            Join the
+            <br />
+            circular network.
+          </h1>
+
+          <p className="text-sm sm:text-base text-emerald-100/70 leading-relaxed font-normal">
+            Connect organic feedstock streams directly to certified anaerobic digestion, pyrolysis, and composting facilities across India.
+          </p>
+
+          <div className="space-y-3.5 pt-4">
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-emerald-100/90">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>Instant matching engine for feedstock offtake</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-emerald-100/90">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>Automated CO2e avoidance calculation &amp; registry</span>
+            </div>
+            <div className="flex items-center gap-3 text-xs sm:text-sm text-emerald-100/90">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+              <span>Direct fleet dispatch route optimization</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Tagline */}
+        <div className="relative z-10 text-xs text-emerald-300/40">
+          Role-guarded &bull; AES Encrypted &bull; 100% PCB Compliant
+        </div>
+      </div>
+
+      {/* RIGHT SIDE: Scrollable Registration Form (Clean Light Canvas) */}
+      <div className="w-full lg:w-7/12 h-full min-h-0 overflow-y-auto p-6 sm:p-12 lg:p-16 bg-[#f9fafb] text-slate-900 flex flex-col items-center">
+        <div className="w-full max-w-xl my-auto space-y-6 py-6">
+          {/* Top Pill Switcher: Sign In vs Create Account */}
+          <div className="flex p-1 bg-slate-200/70 rounded-full w-full max-w-xs mx-auto text-xs font-bold">
+            <Link
+              to="/login"
+              className="flex-1 py-2 text-center rounded-full text-slate-600 hover:text-slate-900 transition-all"
+            >
+              Sign In
+            </Link>
+            <button
+              type="button"
+              className="flex-1 py-2 text-center rounded-full bg-[#1b5e39] text-white shadow-xs transition-all cursor-pointer"
+            >
+              Create Account
+            </button>
+          </div>
+
+          {/* Form Heading */}
+          <div className="space-y-1">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-heading tracking-tight">
+              Create an account
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Select your role and enroll in the circular value chain
+            </p>
+          </div>
+
+          {/* Error Alert Banner */}
+          {apiError && (
+            <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 flex items-center gap-2 animate-in fade-in duration-150">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+              <span>{apiError}</span>
+            </div>
+          )}
+
+          {/* Role Selector Tabs */}
           <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-              Register As:
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Select Account Type
             </label>
-            <div className="grid grid-cols-3 gap-2 p-1.5 rounded-xl bg-slate-100/90 border border-slate-200">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setRole('generator')}
-                className={`py-2 px-1 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
                   role === 'generator'
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <span>Generator</span>
+                <div className="h-8 w-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                  <Sprout className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Generator</span>
+                  <span className="text-[10px] text-slate-500 leading-tight block">Farms / Food</span>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setRole('facility')}
-                className={`py-2 px-1 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
                   role === 'facility'
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <span>Facility</span>
+                <div className="h-8 w-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center">
+                  <Factory className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Facility</span>
+                  <span className="text-[10px] text-slate-500 leading-tight block">Biogas / Biochar</span>
+                </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setRole('municipality')}
-                className={`py-2 px-1 text-xs font-bold rounded-lg transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between gap-2 ${
                   role === 'municipality'
-                    ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-600/30'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/20'
+                    : 'border-slate-200 bg-white hover:bg-slate-50'
                 }`}
               >
-                <span>Municipality</span>
+                <div className="h-8 w-8 rounded-xl bg-purple-100 text-purple-800 flex items-center justify-center">
+                  <Landmark className="h-4 w-4" />
+                </div>
+                <div>
+                  <span className="font-bold text-xs text-slate-900 block">Municipality</span>
+                  <span className="text-[10px] text-slate-500 leading-tight block">Gov / Audit</span>
+                </div>
               </button>
-            </div>
-
-            {/* Role Context Pill */}
-            <div className="p-2 rounded-lg bg-emerald-50/80 border border-emerald-200/80 flex items-center gap-2 text-xs text-emerald-800">
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-              <span className="text-[11px] font-medium">
-                {role === 'generator' && 'Post waste batches, browse offtake facilities, receive carbon credits'}
-                {role === 'facility' && 'Ingest feedstock, optimize processing capacity, dispatch collection trucks'}
-                {role === 'municipality' && 'Track regional diversion, monitor GIS density heatmaps, view ESG reports'}
-              </span>
             </div>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-            {/* Contact Inputs */}
-            <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                1. Organization &amp; Contact Details
-              </span>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Full Name / Organization */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Organization / Full Name <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => {
-                        setName(e.target.value)
-                        if (nameError) validateName(e.target.value)
-                      }}
-                      onBlur={() => validateName(name)}
-                      placeholder={role === 'generator' ? 'GreenAgro Organics Farm' : role === 'facility' ? 'BioVeda Energy Plant' : 'Municipal Waste Board'}
-                      className={`w-full pl-9 pr-3 py-2 text-sm bg-white border rounded-lg focus:outline-none transition-all text-slate-800 ${
-                        nameError
-                          ? 'border-red-400 focus:ring-2 focus:ring-red-400/20'
-                          : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-                      }`}
-                    />
-                  </div>
-                  {nameError && (
-                    <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3 shrink-0" />
-                      {nameError}
-                    </p>
-                  )}
-                </div>
-
-                {/* Contact Phone / WhatsApp */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Phone / WhatsApp <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      type="tel"
-                      value={phone}
-                      onChange={(e) => {
-                        setPhone(e.target.value)
-                        if (phoneError) validatePhone(e.target.value)
-                      }}
-                      onBlur={() => validatePhone(phone)}
-                      placeholder="+91 98765 43210"
-                      className={`w-full pl-9 pr-3 py-2 text-sm bg-white border rounded-lg focus:outline-none transition-all text-slate-800 ${
-                        phoneError
-                          ? 'border-red-400 focus:ring-2 focus:ring-red-400/20'
-                          : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-                      }`}
-                    />
-                  </div>
-                  {phoneError && (
-                    <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3 shrink-0" />
-                      {phoneError}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Work Email */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Work / Official Email <span className="text-red-500">*</span>
+          {/* Registration Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name & Phone */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {role === 'generator'
+                    ? 'Farm / Business Name'
+                    : role === 'facility'
+                    ? 'Plant / Facility Name'
+                    : 'Authority / Officer Name'}
                 </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value)
-                      if (emailError) validateEmail(e.target.value)
-                    }}
-                    onBlur={() => validateEmail(email)}
-                    placeholder="contact@organization.com"
-                    className={`w-full pl-9 pr-3 py-2 text-sm bg-white border rounded-lg focus:outline-none transition-all text-slate-800 ${
-                      emailError
-                        ? 'border-red-400 focus:ring-2 focus:ring-red-400/20'
-                        : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-                    }`}
-                  />
-                </div>
-                {emailError && (
-                  <p className="text-xs text-red-600 font-medium mt-1 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3 shrink-0" />
-                    {emailError}
-                  </p>
-                )}
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    if (nameError) validateName(e.target.value)
+                  }}
+                  onBlur={() => validateName(name)}
+                  placeholder={role === 'generator' ? 'GreenAgro Farms' : 'CleanBio Energy'}
+                  className={`w-full px-3.5 py-2.5 rounded-xl text-xs bg-white border ${
+                    nameError
+                      ? 'border-red-400 focus:ring-red-400'
+                      : 'border-slate-300 focus:border-emerald-600 focus:ring-emerald-500/20'
+                  } text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-3 transition-all`}
+                />
+                {nameError && <p className="text-[10px] text-red-500">{nameError}</p>}
               </div>
 
-              {/* Passwords */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      value={password}
-                      onChange={(e) => {
-                        setPassword(e.target.value)
-                        if (passwordError) validatePassword(e.target.value)
-                      }}
-                      onBlur={() => validatePassword(password)}
-                      placeholder="Min 6 characters"
-                      className={`w-full pl-9 pr-9 py-2 text-sm bg-white border rounded-lg focus:outline-none transition-all text-slate-800 ${
-                        passwordError
-                          ? 'border-red-400 focus:ring-2 focus:ring-red-400/20'
-                          : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {passwordError && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{passwordError}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Confirm Password <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      value={confirmPassword}
-                      onChange={(e) => {
-                        setConfirmPassword(e.target.value)
-                        if (confirmPasswordError) validateConfirmPassword(e.target.value)
-                      }}
-                      onBlur={() => validateConfirmPassword(confirmPassword)}
-                      placeholder="Re-enter password"
-                      className={`w-full pl-9 pr-9 py-2 text-sm bg-white border rounded-lg focus:outline-none transition-all text-slate-800 ${
-                        confirmPasswordError
-                          ? 'border-red-400 focus:ring-2 focus:ring-red-400/20'
-                          : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
-                      }`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {confirmPasswordError && (
-                    <p className="text-xs text-red-600 font-medium mt-1">{confirmPasswordError}</p>
-                  )}
-                </div>
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Phone / WhatsApp (Optional)
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    if (phoneError) validatePhone(e.target.value)
+                  }}
+                  placeholder="+91 98765 43210"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white border border-slate-300 focus:border-emerald-600 focus:ring-emerald-500/20 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-3 transition-all"
+                />
+                {phoneError && <p className="text-[10px] text-red-500">{phoneError}</p>}
               </div>
             </div>
 
-            {/* Location & Interactive Click-To-Pin Map */}
-            <div className="space-y-3 pt-2">
+            {/* Email */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Email Address
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  if (emailError) validateEmail(e.target.value)
+                }}
+                onBlur={() => validateEmail(email)}
+                placeholder="name@example.com"
+                className={`w-full px-3.5 py-2.5 rounded-xl text-xs bg-white border ${
+                  emailError
+                    ? 'border-red-400 focus:ring-red-400'
+                    : 'border-slate-300 focus:border-emerald-600 focus:ring-emerald-500/20'
+                } text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-3 transition-all`}
+              />
+              {emailError && <p className="text-[10px] text-red-500">{emailError}</p>}
+            </div>
+
+            {/* Passwords */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Password (min 6 chars)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      if (passwordError) validatePassword(e.target.value)
+                    }}
+                    onBlur={() => validatePassword(password)}
+                    placeholder="••••••••••••"
+                    className={`w-full px-3.5 py-2.5 pr-9 rounded-xl text-xs bg-white border ${
+                      passwordError
+                        ? 'border-red-400 focus:ring-red-400'
+                        : 'border-slate-300 focus:border-emerald-600 focus:ring-emerald-500/20'
+                    } text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-3 transition-all`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                {passwordError && <p className="text-[10px] text-red-500">{passwordError}</p>}
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      if (confirmPasswordError) validateConfirmPassword(e.target.value)
+                    }}
+                    onBlur={() => validateConfirmPassword(confirmPassword)}
+                    placeholder="••••••••••••"
+                    className={`w-full px-3.5 py-2.5 pr-9 rounded-xl text-xs bg-white border ${
+                      confirmPasswordError
+                        ? 'border-red-400 focus:ring-red-400'
+                        : 'border-slate-300 focus:border-emerald-600 focus:ring-emerald-500/20'
+                    } text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-3 transition-all`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
+                {confirmPasswordError && (
+                  <p className="text-[10px] text-red-500">{confirmPasswordError}</p>
+                )}
+              </div>
+            </div>
+
+            {/* State & City */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  State / Region
+                </label>
+                <select
+                  value={stateName}
+                  onChange={(e) => handleStateChange(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-xl text-xs bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-emerald-600"
+                >
+                  {Object.keys(STATE_COORDINATES).map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  City / District
+                </label>
+                <input
+                  type="text"
+                  value={cityName}
+                  onChange={(e) => {
+                    setCityName(e.target.value)
+                    if (cityError) validateCity(e.target.value)
+                  }}
+                  placeholder="e.g. Bengaluru"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-white border border-slate-300 text-slate-900 focus:outline-none focus:border-emerald-600"
+                />
+                {cityError && <p className="text-[10px] text-red-500">{cityError}</p>}
+              </div>
+            </div>
+
+            {/* Geo Location Map Picker */}
+            <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
-                  2. Operational Location &amp; GIS Pin
-                </span>
+                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  Operating Coordinates: <span className="font-mono text-emerald-800 lowercase font-normal">{latitude}, {longitude}</span>
+                </label>
                 <button
                   type="button"
                   onClick={handleUseCurrentLocation}
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-200 transition-all cursor-pointer"
                 >
-                  <Crosshair className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Pin My Current GPS</span>
+                  <Crosshair className="h-3 w-3" />
+                  <span>Use GPS</span>
                 </button>
               </div>
 
-              {/* State & City selectors */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    State <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={stateName}
-                    onChange={(e) => handleStateChange(e.target.value)}
-                    className="w-full px-3 py-2 text-xs font-medium bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500 text-slate-800"
-                  >
-                    {Object.keys(STATE_COORDINATES).map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                    City <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Building className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
-                    <input
-                      type="text"
-                      value={cityName}
-                      onChange={(e) => {
-                        setCityName(e.target.value)
-                        if (cityError) validateCity(e.target.value)
-                      }}
-                      onBlur={() => validateCity(cityName)}
-                      placeholder="e.g. Bengaluru, Mysuru"
-                      className={`w-full pl-8 pr-3 py-2 text-xs bg-white border rounded-lg focus:outline-none transition-all text-slate-800 ${
-                        cityError ? 'border-red-400' : 'border-slate-200 focus:border-emerald-500'
-                      }`}
-                    />
-                  </div>
-                  {cityError && (
-                    <p className="text-[11px] text-red-600 font-medium mt-0.5">{cityError}</p>
-                  )}
+              {/* Leaflet Map Preview */}
+              <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-slate-300 shadow-inner z-0">
+                <MapContainer
+                  center={[latitude, longitude]}
+                  zoom={12}
+                  scrollWheelZoom={false}
+                  className="h-full w-full"
+                  attributionControl={false}
+                >
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    maxZoom={19}
+                  />
+                  <MapClickHandler onPick={handleMapPinPick} />
+                  <MapRecenter coords={[latitude, longitude]} />
+                  <Marker
+                    position={[latitude, longitude]}
+                    icon={createPickerPin(role)}
+                  />
+                </MapContainer>
+                <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-md text-[10px] font-medium text-slate-600 border border-slate-200 z-[1000]">
+                  Click anywhere on map to reposition pin
                 </div>
               </div>
-
-              {/* Interactive Click-to-Pin Leaflet Map */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span className="font-semibold flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-                    Click anywhere on the map to set your location pin:
-                  </span>
-                  <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded font-mono text-slate-600">
-                    {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                  </span>
-                </div>
-
-                <div className="relative h-56 w-full rounded-xl overflow-hidden border border-slate-300 shadow-inner z-0">
-                  <MapContainer
-                    center={[latitude, longitude]}
-                    zoom={12}
-                    scrollWheelZoom={false}
-                    className="h-full w-full"
-                    attributionControl={false}
-                  >
-                    <TileLayer
-                      url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                      maxZoom={19}
-                    />
-                    <MapClickHandler
-                      onPick={(lat, lng) => {
-                        setLatitude(lat)
-                        setLongitude(lng)
-                        setCoordsError('')
-                      }}
-                    />
-                    <MapRecenter coords={[latitude, longitude]} />
-                    <Marker
-                      position={[latitude, longitude]}
-                      icon={createPickerPin(role)}
-                    />
-                  </MapContainer>
-
-                  <div className="absolute bottom-2 left-2 z-[500] bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-200 text-[10px] font-semibold text-slate-700 shadow-sm pointer-events-none">
-                    🎯 Tap map to adjust coordinates
-                  </div>
-                </div>
-
-                {/* Coordinate inputs */}
-                <div className="grid grid-cols-2 gap-3 pt-1">
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
-                      Latitude
-                    </label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={latitude}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value)
-                        setLatitude(val)
-                        validateCoords(val, longitude)
-                      }}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-mono focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-500 mb-0.5">
-                      Longitude
-                    </label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={longitude}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value)
-                        setLongitude(val)
-                        validateCoords(latitude, val)
-                      }}
-                      className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg text-slate-800 font-mono focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                {coordsError && (
-                  <p className="text-xs text-red-600 font-medium flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3 shrink-0" />
-                    {coordsError}
-                  </p>
-                )}
-              </div>
+              {coordsError && <p className="text-[10px] text-red-500">{coordsError}</p>}
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-4"
+              className="w-full py-3 px-4 rounded-xl bg-[#1b5e39] hover:bg-[#154c2e] active:scale-[0.99] text-white font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-emerald-900/20 cursor-pointer disabled:opacity-60 mt-2"
             >
               {isSubmitting ? (
-                'Registering & Logging in...'
+                <span>Creating Account...</span>
               ) : (
                 <>
-                  <span>Register &amp; Launch {role.charAt(0).toUpperCase() + role.slice(1)} Portal</span>
+                  <span>Create Account</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
             </button>
           </form>
 
+          {/* Footer Note */}
           <div className="text-center pt-2">
             <p className="text-xs text-slate-500">
               Already have an account?{' '}
-              <Link to="/login" className="font-bold text-emerald-700 hover:text-emerald-800 hover:underline">
-                Sign In here
+              <Link to="/login" className="font-bold text-[#1b5e39] hover:underline">
+                Sign in here
               </Link>
             </p>
           </div>

@@ -6,6 +6,8 @@ export interface User {
   email: string
   role: UserRole
   phone?: string
+  locationLat?: number
+  locationLng?: number
   location_lat?: number
   location_lng?: number
   state?: string
@@ -19,6 +21,8 @@ export interface RegisterPayload {
   password: string
   role?: UserRole
   phone?: string
+  locationLat?: number
+  locationLng?: number
   location_lat?: number
   location_lng?: number
   state?: string
@@ -78,6 +82,15 @@ export interface Match {
   listing?: WasteListing
   facility?: Facility
   createdAt: string
+}
+
+export interface MatchCandidate {
+  facilityId: number
+  facilityName: string
+  distanceKm: number
+  score: number
+  remainingCapacityTons?: number
+  capacityRatio?: number
 }
 
 export interface RouteStop {

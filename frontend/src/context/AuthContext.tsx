@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import type { User, UserRole, AuthTokens, AuthResponse, RegisterPayload } from '../types'
-import { api } from '../api/axiosInstance'
-import { DEMO_USERS } from '../api/mockData'
+import type { User, UserRole, AuthTokens, RegisterPayload } from '../types'
+import { authService, userService, type LoginCredentials } from '../services'
 
 interface AuthContextType {
   user: User | null
@@ -9,62 +8,36 @@ interface AuthContextType {
   role: UserRole | null
   isAuthenticated: boolean
   isLoading: boolean
-  login: (credentials: { email: string; password: string }) => Promise<User>
+  login: (credentials: LoginCredentials) => Promise<User>
   register: (payload: RegisterPayload) => Promise<User>
   logout: () => void
   switchRoleForDemo: (role: UserRole) => void
+  refreshProfile: () => Promise<User | null>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem('ecotrace_user')
-      return stored ? JSON.parse(stored) : DEMO_USERS.generator
-    } catch {
-      return DEMO_USERS.generator
-    }
-  })
-
-  const [tokens, setTokens] = useState<AuthTokens | null>(() => {
-    try {
-      const stored = localStorage.getItem('ecotrace_tokens')
-      return stored ? JSON.parse(stored) : { accessToken: 'demo_token', refreshToken: 'demo_refresh' }
-    } catch {
-      return { accessToken: 'demo_token', refreshToken: 'demo_refresh' }
-    }
-  })
-
+  const [user, setUser] = useState<User | null>(() => authService.getStoredUser())
+  const [tokens, setTokens] = useState<AuthTokens | null>(() => authService.getStoredTokens())
   const [isLoading, setIsLoading] = useState<boolean>(false)
 
   // Sync to localStorage
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('ecotrace_user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('ecotrace_user')
+    if (user && tokens) {
+      authService.setStoredSession(user, tokens)
+    } else if (!user && !tokens) {
+      authService.clearStoredSession()
     }
-  }, [user])
+  }, [user, tokens])
 
-  useEffect(() => {
-    if (tokens) {
-      localStorage.setItem('ecotrace_tokens', JSON.stringify(tokens))
-    } else {
-      localStorage.removeItem('ecotrace_tokens')
-    }
-  }, [tokens])
-
-  const login = async (credentials: { email: string; password: string }): Promise<User> => {
+  const login = async (credentials: LoginCredentials): Promise<User> => {
     setIsLoading(true)
     try {
-      const res = (await api.post('/auth/login', credentials)) as unknown as AuthResponse
-      const authUser = res.user
-      const authTokens = res.tokens
-
-      setUser(authUser)
-      setTokens(authTokens)
-      return authUser
+      const session = await authService.login(credentials)
+      setUser(session.user)
+      setTokens(session.tokens)
+      return session.user
     } finally {
       setIsLoading(false)
     }
@@ -73,33 +46,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (payload: RegisterPayload): Promise<User> => {
     setIsLoading(true)
     try {
-      const res = (await api.post('/auth/register', payload)) as unknown as AuthResponse
-      const authUser = res.user
-      const authTokens = res.tokens
-
-      setUser(authUser)
-      setTokens(authTokens)
-      return authUser
+      const session = await authService.register(payload)
+      setUser(session.user)
+      setTokens(session.tokens)
+      return session.user
     } finally {
       setIsLoading(false)
     }
   }
 
+  const refreshProfile = async (): Promise<User | null> => {
+    try {
+      const liveUser = await userService.getMe()
+      setUser(liveUser)
+      return liveUser
+    } catch {
+      return user
+    }
+  }
+
   const logout = () => {
+    authService.clearStoredSession()
     setUser(null)
     setTokens(null)
-    localStorage.removeItem('ecotrace_user')
-    localStorage.removeItem('ecotrace_tokens')
   }
 
   const switchRoleForDemo = (newRole: UserRole) => {
-    const demoUser = DEMO_USERS[newRole] || DEMO_USERS.generator
-    const demoTokens: AuthTokens = {
-      accessToken: `demo_token_${newRole}_${Date.now()}`,
-      refreshToken: `demo_refresh_${newRole}_${Date.now()}`,
+    if (user) {
+      const updatedUser = { ...user, role: newRole }
+      setUser(updatedUser)
     }
-    setUser(demoUser)
-    setTokens(demoTokens)
   }
 
   return (
@@ -114,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         logout,
         switchRoleForDemo,
+        refreshProfile,
       }}
     >
       {children}

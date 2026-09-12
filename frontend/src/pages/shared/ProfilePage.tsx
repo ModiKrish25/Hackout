@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import {
   Mail,
   Shield,
@@ -14,10 +14,14 @@ import { useAuth } from '../../context/AuthContext'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
 
 export const ProfilePage: React.FC = () => {
-  const { user, role, tokens } = useAuth()
+  const { user, role, tokens, refreshProfile } = useAuth()
 
-  const lat = user?.location_lat || 12.9716
-  const lng = user?.location_lng || 77.5946
+  useEffect(() => {
+    refreshProfile?.()
+  }, [])
+
+  const lat = Number(user?.locationLat || user?.location_lat || 12.9716)
+  const lng = Number(user?.locationLng || user?.location_lng || 77.5946)
 
   const profileMarker: MapMarkerData[] = [
     {
@@ -106,7 +110,7 @@ export const ProfilePage: React.FC = () => {
                 <Phone className="h-3.5 w-3.5 text-slate-400" />
                 Phone / WhatsApp
               </span>
-              <p className="font-bold text-slate-900">{user?.phone || '+91 7778040173'}</p>
+              <p className="font-bold text-slate-900">{user?.phone || 'Not provided'}</p>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1">

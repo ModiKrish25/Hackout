@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import L from 'leaflet'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import { Layers } from 'lucide-react'
 import {
@@ -24,23 +25,23 @@ export interface MapMarkerData {
   status?: string
 }
 
-export type TileTheme = 'voyager' | 'dark' | 'osm'
+export type TileTheme = 'osm' | 'hot' | 'topo'
 
 const TILE_URLS: Record<TileTheme, { url: string; maxZoom: number; label: string }> = {
-  voyager: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    maxZoom: 19,
-    label: 'Voyager Light',
-  },
-  dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png',
-    maxZoom: 19,
-    label: 'Dark Matter',
-  },
   osm: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
     maxZoom: 19,
     label: 'OpenStreetMap',
+  },
+  hot: {
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    maxZoom: 19,
+    label: 'Humanitarian OSM',
+  },
+  topo: {
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    maxZoom: 17,
+    label: 'OpenTopoMap',
   },
 }
 
@@ -83,15 +84,18 @@ const AutoFitBounds: React.FC<{
     if (polyline && polyline.length > 0) {
       polyline.forEach((p) => {
         if (!isNaN(p[0]) && !isNaN(p[1])) {
-          boundsPoints.push(p)
+          boundsPoints.push([p[0], p[1]])
         }
       })
     }
 
-    if (boundsPoints.length > 1) {
-      map.fitBounds(boundsPoints as any, { padding: [40, 40], maxZoom: 14 })
-    } else if (center && zoom) {
-      map.setView(center, zoom)
+    if (boundsPoints.length === 1) {
+      map.setView(boundsPoints[0], zoom || 13, { animate: true })
+    } else if (boundsPoints.length > 1) {
+      const bounds = L.latLngBounds(boundsPoints)
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: true })
+    } else if (center) {
+      map.setView(center, zoom || 12, { animate: true })
     }
   }, [map, markers, polyline, center, zoom])
 
@@ -107,7 +111,7 @@ export const MapView: React.FC<MapViewProps> = ({
   heatPoints,
   showHeatmap = false,
   fitBoundsToMarkers = true,
-  defaultTileTheme = 'voyager',
+  defaultTileTheme = 'osm',
   showTileSwitcher = true,
   className = '',
 }) => {
@@ -125,7 +129,7 @@ export const MapView: React.FC<MapViewProps> = ({
             <Layers className="h-3 w-3 text-emerald-600" />
             <span className="hidden sm:inline">Tiles:</span>
           </div>
-          {(['voyager', 'dark', 'osm'] as TileTheme[]).map((theme) => (
+          {(['osm', 'hot', 'topo'] as TileTheme[]).map((theme) => (
             <button
               key={theme}
               type="button"
@@ -136,7 +140,7 @@ export const MapView: React.FC<MapViewProps> = ({
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
-              {theme === 'voyager' ? 'Voyager' : theme === 'dark' ? 'DarkMatter' : 'OSM'}
+              {theme === 'osm' ? 'OSM Standard' : theme === 'hot' ? 'OSM Vibrant' : 'Terrain'}
             </button>
           ))}
         </div>

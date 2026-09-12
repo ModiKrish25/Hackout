@@ -29,6 +29,9 @@ async function bootstrap() {
             name: 'Green Harvest Organic Farm',
             email: 'greenharvest@example.com',
             password: 'Password123!',
+            phone: '+91 98765 43210',
+            state: 'Karnataka',
+            city: 'Bengaluru',
             role: UserRole.GENERATOR,
             locationLat: 13.0645,
             locationLng: 77.5852, // Yelahanka
@@ -37,6 +40,9 @@ async function bootstrap() {
             name: 'Bangalore Dairy Agro Cooperative',
             email: 'bengaluru.dairy@example.com',
             password: 'Password123!',
+            phone: '+91 98765 43211',
+            state: 'Karnataka',
+            city: 'Bengaluru',
             role: UserRole.GENERATOR,
             locationLat: 12.9234,
             locationLng: 77.5342, // Rajarajeshwari Nagar
@@ -45,6 +51,9 @@ async function bootstrap() {
             name: 'Metro Food Processors Ltd',
             email: 'metrofoods@example.com',
             password: 'Password123!',
+            phone: '+91 98765 43212',
+            state: 'Karnataka',
+            city: 'Bengaluru',
             role: UserRole.GENERATOR,
             locationLat: 12.9812,
             locationLng: 77.6415, // Indiranagar
@@ -53,6 +62,9 @@ async function bootstrap() {
             name: 'FreshFields Produce Market',
             email: 'freshfields@example.com',
             password: 'Password123!',
+            phone: '+91 98765 43213',
+            state: 'Karnataka',
+            city: 'Bengaluru',
             role: UserRole.GENERATOR,
             locationLat: 12.9348,
             locationLng: 77.6189, // Koramangala
@@ -61,6 +73,9 @@ async function bootstrap() {
             name: 'Apex Brewery & Beverages',
             email: 'apexbrewery@example.com',
             password: 'Password123!',
+            phone: '+91 98765 43214',
+            state: 'Karnataka',
+            city: 'Bengaluru',
             role: UserRole.GENERATOR,
             locationLat: 12.9716,
             locationLng: 77.7500, // Whitefield
@@ -69,6 +84,9 @@ async function bootstrap() {
             name: 'BioAgri Crop Solutions',
             email: 'bioagri@example.com',
             password: 'Password123!',
+            phone: '+91 98765 43215',
+            state: 'Karnataka',
+            city: 'Bengaluru',
             role: UserRole.GENERATOR,
             locationLat: 12.8452,
             locationLng: 77.6602, // Electronic City
@@ -94,6 +112,9 @@ async function bootstrap() {
                 name: 'CleanBio Energy Solutions',
                 email: 'cleanbio@example.com',
                 password: 'Password123!',
+                phone: '+91 98765 43220',
+                state: 'Karnataka',
+                city: 'Bengaluru',
                 role: UserRole.FACILITY,
                 locationLat: 13.0285,
                 locationLng: 77.5197, // Peenya Industrial Area
@@ -112,6 +133,9 @@ async function bootstrap() {
                 name: 'East Green Gas Utilities',
                 email: 'eastgreengas@example.com',
                 password: 'Password123!',
+                phone: '+91 98765 43221',
+                state: 'Karnataka',
+                city: 'Bengaluru',
                 role: UserRole.FACILITY,
                 locationLat: 12.9698,
                 locationLng: 77.7200, // Mahadevapura
@@ -130,6 +154,9 @@ async function bootstrap() {
                 name: 'BioCarbon PyroTech Systems',
                 email: 'pyrotech@example.com',
                 password: 'Password123!',
+                phone: '+91 98765 43222',
+                state: 'Karnataka',
+                city: 'Bengaluru',
                 role: UserRole.FACILITY,
                 locationLat: 12.8752,
                 locationLng: 77.6200, // Bommasandra
@@ -148,6 +175,9 @@ async function bootstrap() {
                 name: 'City Compost & Soil Enrichment',
                 email: 'citycompost@example.com',
                 password: 'Password123!',
+                phone: '+91 98765 43223',
+                state: 'Karnataka',
+                city: 'Bengaluru',
                 role: UserRole.FACILITY,
                 locationLat: 13.0012,
                 locationLng: 77.5689, // Malleshwaram

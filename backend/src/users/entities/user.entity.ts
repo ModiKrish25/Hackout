@@ -20,6 +20,15 @@ export class User {
     @Column({ type: 'varchar', unique: true, length: 255 })
     email: string;
 
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    phone: string | null;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    state: string | null;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    city: string | null;
+
     @Exclude()
     @Column({ type: 'varchar', length: 255 })
     passwordHash: string;

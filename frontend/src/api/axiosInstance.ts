@@ -1,14 +1,14 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
-import { mockDb, DEMO_USERS } from './mockData'
+import { mockDb } from './mockData'
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
 export const api = axios.create({
   baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 15000,
 })
 
 // Request Interceptor: Attach JWT Token
@@ -17,9 +17,10 @@ api.interceptors.request.use(
     try {
       const storedTokens = localStorage.getItem('ecotrace_tokens')
       if (storedTokens) {
-        const { accessToken } = JSON.parse(storedTokens)
-        if (accessToken) {
-          config.headers.Authorization = `Bearer ${accessToken}`
+        const parsed = JSON.parse(storedTokens)
+        const token = parsed.accessToken || parsed.token
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`
         }
       }
     } catch {
@@ -40,16 +41,20 @@ api.interceptors.response.use(
     return response.data
   },
   async (error: AxiosError) => {
+    // If backend returned a valid HTTP error status (400, 401, 403, 404, 409, 500), propagate it directly
+    if (error.response) {
+      return Promise.reject(error)
+    }
+
     const originalRequest = error.config
     const url = originalRequest?.url || ''
     const method = originalRequest?.method?.toLowerCase() || 'get'
 
-    // Check if network error (backend not running or connection refused) or 404
-    const isNetworkError = !error.response || error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED'
-    const isNotFound = error.response?.status === 404
+    // Only fallback to mock if network is completely unreachable and not an auth route
+    const isNetworkError = error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED'
 
-    if (isNetworkError || isNotFound) {
-      console.info(`[EcoTrace Hybrid Adapter] Live API unavailable. Handling via MockDB: ${method.toUpperCase()} ${url}`)
+    if (isNetworkError && !url.includes('/auth/')) {
+      console.warn(`[EcoTrace API Adapter] Live API unreachable on ${url}. Using local fallback.`)
       return handleMockFallback(method, url, originalRequest?.data)
     }
 
@@ -57,67 +62,9 @@ api.interceptors.response.use(
   }
 )
 
-// Automatic Mock Adapter Fallback Dispatcher
+// Automatic Mock Adapter Fallback Dispatcher for offline preview only
 function handleMockFallback(method: string, url: string, rawBody?: unknown) {
   const body = typeof rawBody === 'string' ? JSON.parse(rawBody) : rawBody
-
-  // Auth Endpoints
-  if (url.includes('/auth/login')) {
-    let user = null
-    try {
-      const regList = JSON.parse(localStorage.getItem('ecotrace_registered_users') || '[]')
-      user = regList.find((u: any) => u.email?.toLowerCase() === body?.email?.toLowerCase())
-    } catch {
-      // ignore
-    }
-
-    if (!user) {
-      const role = body?.email?.includes('facility')
-        ? 'facility'
-        : body?.email?.includes('municipal')
-        ? 'municipality'
-        : 'generator'
-      user = DEMO_USERS[role] || DEMO_USERS.generator
-    }
-
-    return {
-      user,
-      tokens: {
-        accessToken: `mock_access_${user.role}_${Date.now()}`,
-        refreshToken: `mock_refresh_${user.role}_${Date.now()}`,
-      },
-    }
-  }
-
-  if (url.includes('/auth/register')) {
-    const role = body?.role || 'generator'
-    const user = {
-      id: Date.now(),
-      name: body?.name || 'Registered User',
-      email: body?.email || 'user@ecotrace.com',
-      role,
-      location_lat: body?.location_lat || 12.9716,
-      location_lng: body?.location_lng || 77.5946,
-      state: body?.state || 'Karnataka',
-      city: body?.city || 'Bengaluru',
-    }
-
-    try {
-      const regList = JSON.parse(localStorage.getItem('ecotrace_registered_users') || '[]')
-      regList.push(user)
-      localStorage.setItem('ecotrace_registered_users', JSON.stringify(regList))
-    } catch {
-      // ignore
-    }
-
-    return {
-      user,
-      tokens: {
-        accessToken: `mock_access_${role}_${Date.now()}`,
-        refreshToken: `mock_refresh_${role}_${Date.now()}`,
-      },
-    }
-  }
 
   // Dashboard Summaries
   if (url.includes('/dashboard/generator')) {
@@ -194,7 +141,7 @@ function handleMockFallback(method: string, url: string, rawBody?: unknown) {
     return mockDb.getCarbonRecords()
   }
 
-  return { success: true, message: 'Mock response' }
+  return { success: true, message: 'Fallback response' }
 }
 
 export default api
