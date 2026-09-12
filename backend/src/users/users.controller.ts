@@ -1,13 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
-import { ApiTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiResponse, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GetUser } from '../auth/decorators/get-user.decorator';
+import { User } from './entities/user.entity';
 
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
+
+    @Get('me')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get current logged-in user profile' })
+    @ApiResponse({ status: 200, description: 'Return current user profile' })
+    @ApiResponse({ status: 401, description: 'Unauthorized' })
+    getMe(@GetUser() user: User) {
+        const { passwordHash, ...safeUser } = user;
+        return safeUser;
+    }
 
     @Post()
     @ApiOperation({ summary: 'Create a new user' })
@@ -32,6 +46,8 @@ export class UsersController {
     }
 
     @Patch(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
     @ApiOperation({ summary: 'Update a user' })
     @ApiResponse({ status: 200, description: 'User updated successfully' })
     update(@Param('id', ParseIntPipe) id: number, @Body() updateUserDto: UpdateUserDto) {
@@ -39,6 +55,8 @@ export class UsersController {
     }
 
     @Delete(':id')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
     @ApiOperation({ summary: 'Delete a user' })
     @ApiResponse({ status: 200, description: 'User deleted successfully' })
     remove(@Param('id', ParseIntPipe) id: number) {

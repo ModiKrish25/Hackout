@@ -2,11 +2,19 @@ import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable CORS for all origins (hackathon setting)
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
 
   // Global Middlewares and Interceptors
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -18,14 +26,17 @@ async function bootstrap() {
 
   // Swagger Configuration
   const config = new DocumentBuilder()
-    .setTitle('Common Backend API')
-    .setDescription('The API description for backend with MySQL, JWT Auth, and TypeORM')
+    .setTitle('Waste-to-Carbon-Value Chain Tracker API')
+    .setDescription('Backend API for Waste-to-Carbon-Value Chain Tracker system')
     .setVersion('1.0')
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  await app.listen(process.env.PORT ?? 3000);
+  const configService = app.get(ConfigService);
+  const port = configService.get<number>('PORT', 3000);
+  await app.listen(port);
+  console.log(`Server is running on port ${port}`);
 }
 bootstrap();

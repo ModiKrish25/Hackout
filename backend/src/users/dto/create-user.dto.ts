@@ -30,11 +30,11 @@ export class CreateUserDto {
     @IsOptional()
     @Type(() => Number)
     @IsNumber()
-    location_lat?: number;
+    locationLat?: number;
 
     @ApiPropertyOptional({ description: 'Longitude coordinate', example: -122.419416 })
     @IsOptional()
     @Type(() => Number)
     @IsNumber()
-    location_lng?: number;
+    locationLng?: number;
 }

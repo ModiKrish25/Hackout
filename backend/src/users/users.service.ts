@@ -21,12 +21,12 @@ export class UsersService {
         }
 
         const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(createUserDto.password, salt);
+        const passwordHash = await bcrypt.hash(createUserDto.password, salt);
 
         const { password, ...userData } = createUserDto;
         const user = this.userRepository.create({
             ...userData,
-            password_hash,
+            passwordHash,
         });
 
         return this.userRepository.save(user);
@@ -36,8 +36,8 @@ export class UsersService {
         return this.userRepository.find();
     }
 
-    async findOne(userId: number): Promise<User> {
-        const user = await this.userRepository.findOne({ where: { userId } });
+    async findOne(id: number): Promise<User> {
+        const user = await this.userRepository.findOne({ where: { id } });
         if (!user) {
             throw new NotFoundException(APP_MESSAGES.NOT_FOUND);
         }
@@ -48,14 +48,8 @@ export class UsersService {
         return this.userRepository.findOne({ where: { email } });
     }
 
-    async updateRefreshTokenHash(userId: number, refreshTokenHash: string | null): Promise<void> {
-        await this.userRepository.update(userId, {
-            refresh_token_hash: refreshTokenHash,
-        });
-    }
-
-    async update(userId: number, updateUserDto: UpdateUserDto): Promise<User> {
-        const user = await this.findOne(userId);
+    async update(id: number, updateUserDto: UpdateUserDto): Promise<User> {
+        const user = await this.findOne(id);
 
         if (updateUserDto.email && updateUserDto.email !== user.email) {
             const existingUser = await this.findByEmail(updateUserDto.email);
@@ -64,23 +58,23 @@ export class UsersService {
             }
         }
 
-        let password_hash = user.password_hash;
+        let passwordHash = user.passwordHash;
         if (updateUserDto.password) {
             const salt = await bcrypt.genSalt(10);
-            password_hash = await bcrypt.hash(updateUserDto.password, salt);
+            passwordHash = await bcrypt.hash(updateUserDto.password, salt);
         }
 
         const { password, ...restDto } = updateUserDto;
         this.userRepository.merge(user, {
             ...restDto,
-            password_hash,
+            passwordHash,
         });
 
         return this.userRepository.save(user);
     }
 
-    async remove(userId: number): Promise<void> {
-        const user = await this.findOne(userId);
+    async remove(id: number): Promise<void> {
+        const user = await this.findOne(id);
         await this.userRepository.remove(user);
     }
 }
