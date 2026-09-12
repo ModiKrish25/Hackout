@@ -15,21 +15,22 @@ import {
   ChevronDown,
   Home,
   ShieldCheck,
-  Check,
   X,
   AlertTriangle,
+  Calculator,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import type { UserRole } from '../../types'
+import { CarbonCalculatorModal } from '../carbon/CarbonCalculatorModal'
 
 export const Navbar: React.FC = () => {
-  const { user, role, logout, switchRoleForDemo } = useAuth()
+  const { user, role, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
   // User Dropdown state
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showSignoutModal, setShowSignoutModal] = useState(false)
+  const [showCalculatorModal, setShowCalculatorModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown on outside click
@@ -42,18 +43,6 @@ export const Navbar: React.FC = () => {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  const handleRoleSwitch = (newRole: UserRole) => {
-    switchRoleForDemo(newRole)
-    setDropdownOpen(false)
-    if (newRole === 'generator') {
-      navigate('/generator/dashboard')
-    } else if (newRole === 'facility') {
-      navigate('/facility/dashboard')
-    } else if (newRole === 'municipality') {
-      navigate('/municipal/overview')
-    }
-  }
 
   const handleSignoutClick = () => {
     setDropdownOpen(false)
@@ -73,12 +62,12 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-3">
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="h-10 w-10 rounded-xl p-0.5 bg-emerald-500/10 border border-emerald-300 flex items-center justify-center overflow-hidden shadow-xs group-hover:scale-105 transition-transform">
-              <img src="/logo.png" alt="EcoTrace Logo" className="h-full w-full object-contain" />
+              <img src="/logo.png" alt="Waste2Carbon Logo" className="h-full w-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base tracking-tight text-slate-900 font-heading">
-                  EcoTrace
+                  Waste<span className="text-emerald-600">2Carbon</span>
                 </span>
                 <span className="px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
                   {role}
@@ -220,41 +209,18 @@ export const Navbar: React.FC = () => {
           )}
         </nav>
 
-        {/* Right Section: Demo Switcher & Avatar Dropdown */}
+        {/* Right Section: Calculator & Avatar Dropdown */}
         <div className="flex items-center gap-2 sm:gap-3">
-          {/* Quick Demo Persona Switcher */}
-          <div className="hidden sm:flex items-center bg-slate-100/90 p-1 rounded-xl border border-slate-200">
-            <button
-              onClick={() => handleRoleSwitch('generator')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                role === 'generator'
-                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Generator
-            </button>
-            <button
-              onClick={() => handleRoleSwitch('facility')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                role === 'facility'
-                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Facility
-            </button>
-            <button
-              onClick={() => handleRoleSwitch('municipality')}
-              className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                role === 'municipality'
-                  ? 'bg-white text-emerald-800 shadow-xs border border-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Municipality
-            </button>
-          </div>
+          {/* Quick Access Carbon Calculator Simulator */}
+          <button
+            type="button"
+            onClick={() => setShowCalculatorModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors shadow-2xs cursor-pointer"
+            title="Open Interactive Carbon Accounting Simulator (§6, §24)"
+          >
+            <Calculator className="h-3.5 w-3.5 text-emerald-600" />
+            <span className="hidden sm:inline">Carbon Calculator</span>
+          </button>
 
           {/* User Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
@@ -280,25 +246,6 @@ export const Navbar: React.FC = () => {
                     <ShieldCheck className="h-3 w-3" />
                     <span>Role: {role}</span>
                   </div>
-                </div>
-
-                {/* Mobile Role Switch options */}
-                <div className="sm:hidden p-1 space-y-1 border-b border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block px-2">
-                    Switch Persona:
-                  </span>
-                  {(['generator', 'facility', 'municipality'] as UserRole[]).map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => handleRoleSwitch(r)}
-                      className={`w-full text-left px-2 py-1 text-xs font-semibold rounded-lg capitalize flex items-center justify-between ${
-                        role === r ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600'
-                      }`}
-                    >
-                      <span>{r}</span>
-                      {role === r && <Check className="h-3.5 w-3.5 text-emerald-600" />}
-                    </button>
-                  ))}
                 </div>
 
                 {/* Menu Items */}
@@ -361,7 +308,7 @@ export const Navbar: React.FC = () => {
                     Confirm Sign Out
                   </h3>
                   <p className="text-xs text-slate-500 leading-relaxed">
-                    Are you sure you want to sign out of <span className="font-semibold text-slate-700">EcoTrace</span>? You will need to enter your credentials to access your dashboard again.
+                    Are you sure you want to sign out of <span className="font-semibold text-slate-700">Waste2Carbon</span>? You will need to enter your credentials to access your dashboard again.
                   </p>
                 </div>
               </div>
@@ -388,6 +335,11 @@ export const Navbar: React.FC = () => {
           </div>,
           document.body
         )}
+
+      {/* Global Interactive Carbon Accounting Simulator Modal */}
+      {showCalculatorModal && (
+        <CarbonCalculatorModal onClose={() => setShowCalculatorModal(false)} />
+      )}
     </header>
   )
 }

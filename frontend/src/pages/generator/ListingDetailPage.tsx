@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,20 +13,48 @@ import {
   Sparkles,
   Zap,
   Clock,
+  QrCode,
+  Award,
+  Calculator,
+  Printer,
+  Navigation,
+  ShieldCheck,
 } from 'lucide-react'
 import { mockDb } from '../../api/mockData'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
+import { QRCodeGenerator } from '../../components/shared/QRCodeGenerator'
+import { BatchTrackingModal } from '../../components/tracking/BatchTrackingModal'
+import { CarbonCertificateModal } from '../../components/carbon/CarbonCertificateModal'
+import { CarbonCalculatorModal } from '../../components/carbon/CarbonCalculatorModal'
+import { MatchScoreBreakdownModal } from '../../components/matching/MatchScoreBreakdownModal'
 import toast from 'react-hot-toast'
 
 export const ListingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
+  // Advanced feature modals state
+  const [showQRTrackingModal, setShowQRTrackingModal] = useState(false)
+  const [showCertificateModal, setShowCertificateModal] = useState(false)
+  const [showCalculatorModal, setShowCalculatorModal] = useState(false)
+  const [showMatchModal, setShowMatchModal] = useState(false)
+
   const listingId = Number(id)
   const listing = mockDb.getListings().find((l) => l.id === listingId) || mockDb.getListings()[0]
   const stages = ['listed', 'matched', 'scheduled', 'collected', 'processed']
   const currentStageIndex = stages.indexOf(listing.status)
+
+  const batchSerial = listing.batchId || `W2C-2026-${String(listing.id).padStart(6, '0')}`
+
+  const stageTo10StepIndex: Record<string, number> = {
+    listed: 0,
+    matched: 1,
+    scheduled: 2,
+    collected: 4,
+    processed: 9,
+  }
+  const current10StepIndex = stageTo10StepIndex[listing.status] ?? 0
 
   // Matched facility details (if matched)
   const matchedFacility = listing.matchedFacilityId
@@ -100,8 +128,11 @@ export const ListingDetailPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-2xl font-extrabold text-slate-900 font-heading capitalize tracking-tight">
-                {listing.wasteType.replace('_', ' ')} Batch #{listing.id}
+                {listing.wasteType.replace('_', ' ')}
               </h1>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-mono text-xs font-bold shadow-xs">
+                {batchSerial}
+              </span>
               <StatusBadge status={listing.status} />
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -110,22 +141,135 @@ export const ListingDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Cancel Listing Action */}
-        <div>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setShowQRTrackingModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+          >
+            <QrCode className="h-3.5 w-3.5 text-emerald-400" />
+            <span>QR &amp; 10-Stage Tracker</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowCertificateModal(true)}
+            className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Award className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Certificate</span>
+          </button>
+
           {canCancel ? (
             <button
               onClick={handleCancel}
-              className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>Cancel Listing</span>
+              <span>Cancel</span>
             </button>
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-semibold cursor-not-allowed">
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-xs font-semibold cursor-not-allowed">
               <Lock className="h-3.5 w-3.5 text-slate-400" />
-              <span>Locked (Matched to Offtake)</span>
+              <span>Locked</span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Batch QR Code & Manifest Card (§14, §15) */}
+      <div className="glass-panel rounded-2xl p-6 border border-slate-200/90 shadow-sm bg-white/95 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-10 w-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold">
+              <QrCode className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 font-heading">
+                Batch QR Code &amp; Manifest (§14, §15)
+              </h2>
+              <p className="text-xs text-slate-500">
+                Immutable physical bin label with deterministic cryptographic payload &amp; 10-stage chain-of-custody
+              </p>
+            </div>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-slate-100 text-slate-800 border border-slate-200 self-start sm:self-auto">
+            {batchSerial}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-center">
+          {/* Mini QR Thumbnail */}
+          <div className="md:col-span-3 flex flex-col items-center justify-center p-3 rounded-xl bg-slate-50 border border-slate-200/90 text-center">
+            <QRCodeGenerator
+              value={`W2C-BATCH:${batchSerial}:LISTING-${listing.id}`}
+              size={120}
+              showActions={false}
+              className="p-1.5 border-0 shadow-none bg-transparent"
+            />
+            <span className="text-[10px] font-mono text-slate-500 mt-1 font-semibold">
+              {batchSerial}
+            </span>
+          </div>
+
+          {/* Manifest Spec Grid */}
+          <div className="md:col-span-9 space-y-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs text-center">
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Feedstock Assay</span>
+                <span className="text-xs font-extrabold text-slate-900 capitalize">
+                  {listing.wasteType.replace('_', ' ')}
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Net Weight</span>
+                <span className="text-xs font-extrabold text-slate-900">
+                  {listing.quantityTons} Tons Payload
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Chain Stage</span>
+                <span className="text-xs font-extrabold text-emerald-700">
+                  Stage {current10StepIndex + 1} of 10
+                </span>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                <span className="text-[10px] text-slate-400 block font-semibold uppercase">Weighbridge</span>
+                <span className="text-xs font-extrabold text-blue-700">
+                  Certified QA Pass
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+              <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span>Geofenced origin GPS coordinates verified for tamper-proof traceability.</span>
+              </div>
+
+              {/* Required buttons: "Scan / Print QR Label" & "Track Live Journey" */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQRTrackingModal(true)}
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Printer className="h-3.5 w-3.5 text-slate-600" />
+                  <span>Scan / Print QR Label</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowQRTrackingModal(true)}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-emerald-600/25 transition-all cursor-pointer"
+                >
+                  <Navigation className="h-3.5 w-3.5" />
+                  <span>Track Live Journey</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -217,15 +361,23 @@ export const ListingDetailPage: React.FC = () => {
 
               {/* Algorithmic Compatibility Score & Distance Badges */}
               <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Algorithmic Fit</span>
+                <div
+                  onClick={() => setShowMatchModal(true)}
+                  className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 hover:border-emerald-300 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>Algorithmic Fit</span>
+                    </div>
+                    <span className="text-[10px] text-emerald-700 underline group-hover:text-emerald-900">
+                      Breakdown &rarr;
+                    </span>
                   </div>
                   <div className="text-xl font-extrabold text-emerald-800 mt-1 font-heading">
                     {compatibilityScore}%
                   </div>
-                  <p className="text-[10px] text-emerald-700 mt-0.5">High purity &amp; feedstock match</p>
+                  <p className="text-[10px] text-emerald-700 mt-0.5">35% Compatibility, 25% Proximity, 15% Cost</p>
                 </div>
 
                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
@@ -312,16 +464,26 @@ export const ListingDetailPage: React.FC = () => {
 
       {/* 3. Carbon Impact Section: CO2 Sequestered vs Landfill Baseline Comparison */}
       <div className="glass-panel rounded-2xl p-6 border border-emerald-200/90 shadow-sm bg-gradient-to-br from-emerald-50/50 via-white to-white space-y-5">
-        <div className="flex items-center gap-2 border-b border-emerald-100 pb-3">
-          <Leaf className="h-5 w-5 text-emerald-600" />
-          <div>
-            <h2 className="text-base font-extrabold text-slate-900 font-heading">
-              Carbon Impact &amp; Offtake Accounting
-            </h2>
-            <p className="text-xs text-slate-500">
-              Landfill methane baseline comparison vs certified bio-conversion sequestration
-            </p>
+        <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+          <div className="flex items-center gap-2">
+            <Leaf className="h-5 w-5 text-emerald-600" />
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 font-heading">
+                Carbon Impact &amp; Offtake Accounting
+              </h2>
+              <p className="text-xs text-slate-500">
+                Landfill methane baseline comparison vs certified bio-conversion sequestration
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowCalculatorModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+          >
+            <Calculator className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Open 5-Step Model</span>
+          </button>
         </div>
 
         {/* Side-by-side Baseline vs Project comparison */}
@@ -405,6 +567,85 @@ export const ListingDetailPage: React.FC = () => {
           fitBoundsToMarkers={true}
         />
       </div>
+
+      {/* MODAL 1: QR & 10-Stage Lifecycle Tracker */}
+      {showQRTrackingModal && (
+        <BatchTrackingModal
+          batch={{
+            batchId: batchSerial,
+            listingId: listing.id,
+            wasteType: listing.wasteType,
+            quantityTons: listing.quantityTons,
+            generatorName: listing.generatorName || 'Aarav Sharma (GreenAgro Farms)',
+            facilityName: matchedFacility?.name || 'BioVeda Energy Biomethanation Plant',
+            facilityType: matchedFacility?.facilityType || 'Anaerobic Digestion & Pyrolysis',
+            originAddress: listing.address || 'Koramangala 4th Block, Agro Produce Hub',
+            destinationAddress: matchedFacility?.address || 'Rajajinagar Industrial Area, Bangalore',
+            driverName: 'Ramesh Kumar (EV Logistics)',
+            truckNumber: 'KA-04-EV-9821',
+            distanceKm: distanceKm || 8.5,
+            createdAt: listing.createdAt,
+            currentStageIndex: current10StepIndex,
+          }}
+          onClose={() => setShowQRTrackingModal(false)}
+          onOpenCertificate={() => setShowCertificateModal(true)}
+        />
+      )}
+
+      {/* MODAL 2: Verifiable Digital Carbon Certificate */}
+      {showCertificateModal && (
+        <CarbonCertificateModal
+          data={{
+            certificateId: `W2C-CERT-2026-${String(listing.id * 7391).slice(-6)}`,
+            batchId: batchSerial,
+            wasteType: listing.wasteType,
+            quantityTons: listing.quantityTons,
+            pathway: matchedFacility?.facilityType || 'Biochar & Biogas Valorization',
+            netCO2eTons: Number(avoidedCO2e),
+            landfillAvoidedTons: Number((listing.quantityTons * 0.82).toFixed(1)),
+            carbonStoredTons: Number((listing.quantityTons * 0.66).toFixed(1)),
+            generatorName: listing.generatorName || 'Aarav Sharma (GreenAgro Farms)',
+            facilityName: matchedFacility?.name || 'BioVeda Energy Biomethanation Plant',
+            issuanceDate: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+            methodologyStandard: 'Verra VM0044 & IPCC Tier 2 Solid Waste Method',
+          }}
+          onClose={() => setShowCertificateModal(false)}
+        />
+      )}
+
+      {/* MODAL 3: Transparent Carbon Accounting Calculator */}
+      {showCalculatorModal && (
+        <CarbonCalculatorModal
+          initialWasteType={listing.wasteType}
+          initialQuantity={listing.quantityTons}
+          initialDistance={distanceKm || 25}
+          onClose={() => setShowCalculatorModal(false)}
+        />
+      )}
+
+      {/* MODAL 4: 5-Factor Smart Matching Breakdown */}
+      {showMatchModal && matchedFacility && (
+        <MatchScoreBreakdownModal
+          details={{
+            facilityName: matchedFacility.name,
+            facilityType: matchedFacility.facilityType,
+            generatorName: listing.generatorName || 'GreenAgro Farms',
+            wasteType: listing.wasteType,
+            quantityTons: listing.quantityTons,
+            distanceKm: distanceKm || 7.8,
+            overallScore: compatibilityScore,
+            compatibilityScore: 98,
+            distanceScore: 95,
+            processingCostScore: 92,
+            capacityScore: 96,
+            carbonBenefitScore: 94,
+            offtakePricePerTon: 850,
+            estimatedTransportCost: 1250,
+            carbonBenefitTons: Number(avoidedCO2e),
+          }}
+          onClose={() => setShowMatchModal(false)}
+        />
+      )}
     </div>
   )
 }
