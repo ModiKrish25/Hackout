@@ -7,8 +7,11 @@ import {
   Award,
   Building2,
   FileSpreadsheet,
+  QrCode,
 } from 'lucide-react'
 import { mockDb } from '../../api/mockData'
+import { CarbonCertificateModal, type CertificateData } from '../../components/carbon/CarbonCertificateModal'
+import { BatchTrackingModal, type BatchTrackingDetails } from '../../components/tracking/BatchTrackingModal'
 import Papa from 'papaparse'
 import toast from 'react-hot-toast'
 
@@ -19,7 +22,48 @@ export const ReportsPage: React.FC = () => {
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0])
   const [searchQuery, setSearchQuery] = useState('')
 
+  const [selectedRecordForCertificate, setSelectedRecordForCertificate] = useState<CertificateData | null>(null)
+  const [selectedTrackingBatch, setSelectedTrackingBatch] = useState<BatchTrackingDetails | null>(null)
+
   const allRecords = mockDb.getCarbonRecords()
+
+  const openCertificate = (record: (typeof allRecords)[0]) => {
+    const batchId = `W2C-2026-00010${record.id}`
+    setSelectedRecordForCertificate({
+      certificateId: `W2C-CERT-2026-00${record.id}9`,
+      batchId,
+      wasteType: record.wasteType.replace('_', ' '),
+      quantityTons: record.quantityTons,
+      pathway: record.conversionPathway,
+      netCO2eTons: record.netCarbonBenefitTons,
+      landfillAvoidedTons: record.landfillMethaneBaselineTons,
+      carbonStoredTons: record.co2SequesteredTons,
+      generatorName: record.generatorName,
+      facilityName: record.facilityName,
+      issuanceDate: record.processedDate,
+      methodologyStandard: 'Verra VM0044 & CDM ACM0022 Bio-Assay',
+    })
+  }
+
+  const openTracking = (record: (typeof allRecords)[0]) => {
+    const batchId = `W2C-2026-00010${record.id}`
+    setSelectedTrackingBatch({
+      batchId,
+      listingId: record.id,
+      wasteType: record.wasteType.replace('_', ' '),
+      quantityTons: record.quantityTons,
+      generatorName: record.generatorName,
+      facilityName: record.facilityName,
+      facilityType: record.conversionPathway,
+      originAddress: `${record.generatorName} Facility Gate, Agri-Corridor`,
+      destinationAddress: `${record.facilityName}, Bio-Conversion Plant #2`,
+      driverName: 'Rajesh Kumar (Heavy Fleet #104)',
+      truckNumber: 'KA-05-EV-4421',
+      distanceKm: 28.5,
+      createdAt: record.processedDate,
+      currentStageIndex: 8, // 8 is CARBON IMPACT VERIFIED
+    })
+  }
 
   // Apply filters
   const filtered = allRecords.filter((r) => {
@@ -224,18 +268,22 @@ export const ReportsPage: React.FC = () => {
                 <th className="pb-3.5">Gross CO2e</th>
                 <th className="pb-3.5">Net Credit</th>
                 <th className="pb-3.5">Conversion Pathway</th>
-                <th className="pb-3.5 text-right">Audit Date</th>
+                <th className="pb-3.5">Audit Date</th>
+                <th className="pb-3.5 text-right">Verification &amp; Audit</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-slate-700">
               {filtered.map((record) => (
                 <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="py-3.5 font-mono font-bold text-slate-900">#CR-{record.id}</td>
+                  <td className="py-3.5 font-mono font-bold text-slate-900">
+                    <span className="text-slate-900">#CR-{record.id}</span>
+                    <span className="block text-[10px] text-slate-400 font-normal font-mono">W2C-2026-00010{record.id}</span>
+                  </td>
                   <td className="py-3.5 font-bold text-slate-900">
-                    <div className="truncate max-w-[170px]">{record.generatorName}</div>
+                    <div className="truncate max-w-[160px]">{record.generatorName}</div>
                   </td>
                   <td className="py-3.5 text-slate-700">
-                    <div className="flex items-center gap-1.5 font-medium truncate max-w-[170px]">
+                    <div className="flex items-center gap-1.5 font-medium truncate max-w-[160px]">
                       <Building2 className="h-3 w-3 text-emerald-600 shrink-0" />
                       <span className="truncate">{record.facilityName}</span>
                     </div>
@@ -255,12 +303,34 @@ export const ReportsPage: React.FC = () => {
                     +{record.netCarbonBenefitTons}
                   </td>
                   <td className="py-3.5 text-slate-600">
-                    <span className="truncate max-w-[160px] block font-medium">
+                    <span className="truncate max-w-[150px] block font-medium">
                       {record.conversionPathway}
                     </span>
                   </td>
-                  <td className="py-3.5 text-right text-slate-500 font-mono text-[11px]">
+                  <td className="py-3.5 text-slate-500 font-mono text-[11px]">
                     {record.processedDate}
+                  </td>
+                  <td className="py-3.5 text-right">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openCertificate(record)}
+                        title="View & download official verifiable carbon certificate"
+                        className="p-1.5 px-2.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-[11px] font-bold flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <Award className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Certificate</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openTracking(record)}
+                        title="View 10-stage lifecycle batch tracker"
+                        className="p-1.5 px-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[11px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <QrCode className="h-3.5 w-3.5 text-slate-600" />
+                        <span>Track</span>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -268,6 +338,22 @@ export const ReportsPage: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* Carbon Certificate Modal */}
+      {selectedRecordForCertificate && (
+        <CarbonCertificateModal
+          data={selectedRecordForCertificate}
+          onClose={() => setSelectedRecordForCertificate(null)}
+        />
+      )}
+
+      {/* 10-Stage Lifecycle Batch Tracking Modal */}
+      {selectedTrackingBatch && (
+        <BatchTrackingModal
+          batch={selectedTrackingBatch}
+          onClose={() => setSelectedTrackingBatch(null)}
+        />
+      )}
     </div>
   )
 }

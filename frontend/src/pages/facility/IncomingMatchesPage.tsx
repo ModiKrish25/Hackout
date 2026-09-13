@@ -10,12 +10,14 @@ import {
   Gauge,
   Leaf,
   Building2,
+  Sparkles,
 } from 'lucide-react'
 import { mockDb } from '../../api/mockData'
 import { useAuth } from '../../context/AuthContext'
 import { api } from '../../api/axiosInstance'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyState } from '../../components/shared/EmptyState'
+import { MatchScoreBreakdownModal, type MatchScoreDetails } from '../../components/matching/MatchScoreBreakdownModal'
 import toast from 'react-hot-toast'
 import type { MatchStatus } from '../../types'
 
@@ -25,10 +27,39 @@ export const IncomingMatchesPage: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<MatchStatus>('pending')
   const [localMatches, setLocalMatches] = useState(() => mockDb.getMatches(facilityId))
+  const [selectedMatchForBreakdown, setSelectedMatchForBreakdown] = useState<{
+    details: MatchScoreDetails
+    matchId: number
+    quantityTons: number
+  } | null>(null)
   const [utilizedCapacity, setUtilizedCapacity] = useState(() => {
     return mockDb.getFacilitySummary(facilityId).currentUtilizationTons
   })
   const weeklyCapacity = 120 // tons
+
+  const openBreakdown = (match: (typeof localMatches)[0]) => {
+    setSelectedMatchForBreakdown({
+      matchId: match.id,
+      quantityTons: match.quantityTons,
+      details: {
+        facilityName: user?.name || 'BioVeda Energy Hub #4',
+        facilityType: 'Anaerobic Digester & Pyrolysis',
+        generatorName: match.generatorName || 'Agricultural Feedstock Producer',
+        wasteType: match.wasteType.replace('_', ' '),
+        quantityTons: match.quantityTons,
+        distanceKm: match.distanceKm,
+        overallScore: match.matchScore,
+        compatibilityScore: Math.min(98, Math.round(match.matchScore * 1.03)),
+        distanceScore: Math.max(65, Math.round(100 - match.distanceKm * 1.25)),
+        processingCostScore: 89,
+        capacityScore: 92,
+        carbonBenefitScore: 96,
+        offtakePricePerTon: 620,
+        estimatedTransportCost: Math.round(match.distanceKm * 28),
+        carbonBenefitTons: Number((match.quantityTons * 1.48).toFixed(1)),
+      },
+    })
+  }
 
   // Filter by active tab
   const filteredMatches = localMatches.filter((m) => {
@@ -192,11 +223,17 @@ export const IncomingMatchesPage: React.FC = () => {
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-extrabold shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => openBreakdown(match)}
+                        title="Click to view full 5-factor weighted algorithm breakdown"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-extrabold shadow-2xs cursor-pointer transition-colors"
+                      >
                         <Award className="h-3.5 w-3.5 text-emerald-600" />
                         <span>{match.matchScore}% Fit</span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 block mt-0.5">Algorithm Score</span>
+                        <Sparkles className="h-3 w-3 text-emerald-500" />
+                      </button>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Click for Audit Breakdown</span>
                     </div>
                   </div>
 
@@ -247,6 +284,16 @@ export const IncomingMatchesPage: React.FC = () => {
                       <span className="truncate">Sourced from Bengaluru South Agricultural Corridor</span>
                     </div>
                   </div>
+
+                  {/* 5-Factor Score Analysis Button */}
+                  <button
+                    type="button"
+                    onClick={() => openBreakdown(match)}
+                    className="w-full py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 hover:border-emerald-200 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>View 5-Factor Matching Breakdown (Compatibility 35%, Distance 25%...)</span>
+                  </button>
                 </div>
 
                 {/* Card Actions: Accept and Reject with Optimistic Updates */}
@@ -279,6 +326,19 @@ export const IncomingMatchesPage: React.FC = () => {
             )
           })}
         </div>
+      )}
+
+      {/* 5-Factor Matching Breakdown Modal */}
+      {selectedMatchForBreakdown && (
+        <MatchScoreBreakdownModal
+          details={selectedMatchForBreakdown.details}
+          onClose={() => setSelectedMatchForBreakdown(null)}
+          onAcceptMatch={() => {
+            const { matchId, quantityTons } = selectedMatchForBreakdown
+            setSelectedMatchForBreakdown(null)
+            handleAccept(matchId, quantityTons)
+          }}
+        />
       )}
     </div>
   )

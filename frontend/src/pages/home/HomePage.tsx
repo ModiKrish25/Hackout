@@ -1,5 +1,6 @@
 import React from 'react'
 import { HeroSection } from '../../components/home/HeroSection'
+import { ArchitecturePipelineSection } from '../../components/home/ArchitecturePipelineSection'
 import { Link } from 'react-router-dom'
 import {
   Recycle,
@@ -14,6 +15,9 @@ export const HomePage: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-800 font-sans flex flex-col">
       {/* Hero Section */}
       <HeroSection />
+
+      {/* Proposed Architectural Enhancements Interactive Pipeline */}
+      <ArchitecturePipelineSection />
 
       {/* Value Chain Showcase Section in Clean White, Light Green & Shades of Gray */}
       <section className="bg-slate-50 py-16 px-4 sm:px-6 lg:px-8">
@@ -125,14 +129,14 @@ export const HomePage: React.FC = () => {
       <footer className="bg-slate-900 border-t border-slate-800 py-8 px-4 sm:px-8 text-white">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="EcoTrace Logo" className="h-9 w-9 object-contain" />
+            <img src="/logo.png" alt="Waste2Carbon Logo" className="h-9 w-9 object-contain" />
             <div>
-              <span className="font-bold text-sm tracking-wide text-white">RECYCLING HUB &bull; ECOTRACE</span>
+              <span className="font-bold text-sm tracking-wide text-white">WASTE<span className="text-emerald-400">2CARBON</span> &bull; COMPLIANCE &amp; VALUE CHAIN</span>
               <p className="text-[11px] text-slate-400">Waste-to-Carbon-Value Chain Tracker</p>
             </div>
           </div>
           <div className="text-xs text-slate-400">
-            &copy; 2026 EcoTrace Platform. 100% Environmental &amp; PCB Compliance Architecture.
+            &copy; 2026 Waste2Carbon Platform. 100% Environmental &amp; PCB Compliance Architecture.
           </div>
         </div>
       </footer>

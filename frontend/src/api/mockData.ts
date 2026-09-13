@@ -84,6 +84,7 @@ export const INITIAL_FACILITIES: Facility[] = [
 export const INITIAL_LISTINGS: WasteListing[] = [
   {
     id: 1,
+    batchId: 'W2C-2026-000101',
     generatorId: 101,
     generatorName: 'Aarav Sharma (GreenAgro Farms)',
     wasteType: 'agricultural',
@@ -99,6 +100,7 @@ export const INITIAL_LISTINGS: WasteListing[] = [
   },
   {
     id: 2,
+    batchId: 'W2C-2026-000102',
     generatorId: 101,
     generatorName: 'Aarav Sharma (GreenAgro Farms)',
     wasteType: 'food',
@@ -117,6 +119,7 @@ export const INITIAL_LISTINGS: WasteListing[] = [
   },
   {
     id: 3,
+    batchId: 'W2C-2026-000103',
     generatorId: 101,
     generatorName: 'Aarav Sharma (GreenAgro Farms)',
     wasteType: 'manure',
@@ -135,6 +138,7 @@ export const INITIAL_LISTINGS: WasteListing[] = [
   },
   {
     id: 4,
+    batchId: 'W2C-2026-000104',
     generatorId: 101,
     generatorName: 'Aarav Sharma (GreenAgro Farms)',
     wasteType: 'food',
@@ -153,6 +157,7 @@ export const INITIAL_LISTINGS: WasteListing[] = [
   },
   {
     id: 5,
+    batchId: 'W2C-2026-000105',
     generatorId: 101,
     generatorName: 'Aarav Sharma (GreenAgro Farms)',
     wasteType: 'agricultural',
@@ -171,6 +176,7 @@ export const INITIAL_LISTINGS: WasteListing[] = [
   },
   {
     id: 6,
+    batchId: 'W2C-2026-000106',
     generatorId: 102,
     generatorName: 'Cauvery Food Processing Unit',
     wasteType: 'industrial_organic',
@@ -368,9 +374,11 @@ class MockDbStore {
 
   saveListing(listing: Omit<WasteListing, 'id' | 'createdAt' | 'status'>): WasteListing {
     const listings = this.getListings()
+    const newId = Date.now()
     const newListing: WasteListing = {
       ...listing,
-      id: Date.now(),
+      id: newId,
+      batchId: `W2C-2026-${String(newId).slice(-6)}`,
       status: 'listed',
       createdAt: new Date().toISOString(),
     }

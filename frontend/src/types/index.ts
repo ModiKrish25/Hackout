@@ -46,6 +46,7 @@ export interface WasteListing {
   locationLng: number
   address?: string
   status: ListingStatus
+  batchId?: string
   matchedFacilityId?: number
   matchedFacilityName?: string
   matchId?: number
