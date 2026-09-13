@@ -12,15 +12,62 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { mockDb } from '../../api/mockData'
+import { useQuery } from '@tanstack/react-query'
+import { dashboardService } from '../../services/dashboard.service'
+import { matchingService } from '../../services/matching.service'
+import { wasteListingService } from '../../services/wasteListing.service'
 import { StatCard } from '../../components/shared/StatCard'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
 
 export const FacilityDashboard: React.FC = () => {
   const { user } = useAuth()
-  const summary = mockDb.getFacilitySummary(user?.id || 201)
-  const pendingMatches = mockDb.getMatches(user?.id || 201, 'pending')
-  const listings = mockDb.getListings()
+  const facilityId = user?.id || 201
+
+  const { data: remoteSummary } = useQuery({
+    queryKey: ['facilitySummary', facilityId],
+    queryFn: async () => {
+      try {
+        return await dashboardService.getFacilitySummary(facilityId)
+      } catch (e) {
+        return null
+      }
+    },
+    enabled: !!facilityId,
+  })
+
+  const { data: remoteMatches } = useQuery({
+    queryKey: ['facility-pending-matches', facilityId],
+    queryFn: async () => {
+      try {
+        return await matchingService.getAllMatches({ facilityId, status: 'pending' })
+      } catch (e) {
+        return null
+      }
+    },
+  })
+
+  const { data: remoteListings } = useQuery({
+    queryKey: ['all-listings-area'],
+    queryFn: async () => {
+      try {
+        return await wasteListingService.getAllListings()
+      } catch (e) {
+        return null
+      }
+    },
+  })
+
+  const summary = {
+    capacityUtilizationPercent: remoteSummary?.utilizationPercentage ?? 0,
+    pendingMatchesCount: remoteMatches?.length ?? remoteSummary?.matchesByStatus?.pending ?? 0,
+    tonsProcessedAllTime: remoteSummary?.totalTonsProcessed ?? 0,
+    co2SequesteredAllTime: Math.round(remoteSummary?.totalNetCarbonGeneratedTons ?? ((remoteSummary?.totalTonsProcessed ?? 0) * 1.48)),
+    weeklyCapacityTons: remoteSummary?.capacityTonsPerWeek ?? 250,
+    currentUtilizationTons: remoteSummary?.currentUtilization ?? 0,
+  }
+
+  const pendingMatches = remoteMatches ?? []
+  const listings = remoteListings ?? []
 
   // Area map markers: Facility location + adjacent pending/scheduled listings
   const areaMarkers: MapMarkerData[] = [

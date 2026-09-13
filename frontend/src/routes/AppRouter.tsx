@@ -75,6 +75,7 @@ export const AppRouter: React.FC = () => {
             <Route element={<RoleGuard allowedRoles={['facility']} />}>
               <Route path="/facility/dashboard" element={<FacilityDashboard />} />
               <Route path="/facility/matches" element={<IncomingMatchesPage />} />
+              <Route path="/facility/routes" element={<Navigate to={`/facility/routes/${new Date().toISOString().split('T')[0]}`} replace />} />
               <Route path="/facility/routes/:date" element={<RouteViewPage />} />
               <Route path="/facility/settings" element={<FacilitySettingsPage />} />
             </Route>

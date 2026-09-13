@@ -27,12 +27,16 @@ import { QRCodeGenerator } from '../../components/shared/QRCodeGenerator'
 import { BatchTrackingModal } from '../../components/tracking/BatchTrackingModal'
 import { CarbonCertificateModal } from '../../components/carbon/CarbonCertificateModal'
 import { CarbonCalculatorModal } from '../../components/carbon/CarbonCalculatorModal'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { wasteListingService } from '../../services/wasteListing.service'
 import { MatchScoreBreakdownModal } from '../../components/matching/MatchScoreBreakdownModal'
 import toast from 'react-hot-toast'
+import type { WasteListing } from '../../types'
 
 export const ListingDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   // Advanced feature modals state
   const [showQRTrackingModal, setShowQRTrackingModal] = useState(false)
@@ -41,7 +45,55 @@ export const ListingDetailPage: React.FC = () => {
   const [showMatchModal, setShowMatchModal] = useState(false)
 
   const listingId = Number(id)
-  const listing = mockDb.getListings().find((l) => l.id === listingId) || mockDb.getListings()[0]
+
+  const { data: remoteListing } = useQuery({
+    queryKey: ['listing-detail', listingId],
+    queryFn: async () => {
+      try {
+        if (!listingId) return null
+        return await wasteListingService.getListingById(listingId)
+      } catch (e) {
+        return null
+      }
+    },
+    enabled: !isNaN(listingId) && listingId > 0,
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: async (idToCancel: number) => {
+      try {
+        return await wasteListingService.cancelListing(idToCancel)
+      } catch (err) {
+        mockDb.cancelListing(idToCancel)
+        return { message: 'Cancelled locally' }
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['listings'] })
+      queryClient.invalidateQueries({ queryKey: ['my-listings'] })
+      toast.success('Listing cancelled successfully.')
+      navigate('/generator/listings')
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Could not cancel listing.')
+    },
+  })
+
+  const rawListing = remoteListing || mockDb.getListings().find((l) => l.id === listingId) || mockDb.getListings()[0]
+  const listing: WasteListing = {
+    ...rawListing,
+    id: rawListing.id || listingId || 1,
+    quantityTons: Number(rawListing.quantityTons) || 0,
+    locationLat: Number(rawListing.locationLat) || 12.9716,
+    locationLng: Number(rawListing.locationLng) || 77.5946,
+    moistureContent: rawListing.moistureContent != null ? Number(rawListing.moistureContent) : 25,
+    wasteType: rawListing.wasteType || 'agricultural',
+    status: rawListing.status || 'listed',
+    availableFrom: typeof rawListing.availableFrom === 'string' && rawListing.availableFrom.includes('T') ? rawListing.availableFrom.split('T')[0] : (rawListing.availableFrom || ''),
+    availableTo: typeof rawListing.availableTo === 'string' && rawListing.availableTo.includes('T') ? rawListing.availableTo.split('T')[0] : (rawListing.availableTo || ''),
+    createdAt: rawListing.createdAt || new Date().toISOString(),
+  }
+
   const stages = ['listed', 'matched', 'scheduled', 'collected', 'processed']
   const currentStageIndex = stages.indexOf(listing.status)
 
@@ -77,13 +129,7 @@ export const ListingDetailPage: React.FC = () => {
   const handleCancel = () => {
     if (!canCancel) return
     if (window.confirm('Are you sure you want to cancel this waste listing? This will remove it from the matching engine.')) {
-      const success = mockDb.cancelListing(listing.id)
-      if (success) {
-        toast.success('Listing cancelled successfully.')
-        navigate('/generator/listings')
-      } else {
-        toast.error('Could not cancel listing.')
-      }
+      cancelMutation.mutate(listing.id)
     }
   }
 
@@ -91,12 +137,12 @@ export const ListingDetailPage: React.FC = () => {
   const detailMarkers: MapMarkerData[] = [
     {
       id: `gen-${listing.id}`,
-      lat: listing.locationLat,
-      lng: listing.locationLng,
+      lat: Number(listing.locationLat),
+      lng: Number(listing.locationLng),
       type: 'generator',
-      title: `${listing.wasteType.toUpperCase()} Pickup Gate`,
+      title: `${(listing.wasteType || 'ORGANIC').toUpperCase()} Pickup Gate`,
       subtitle: listing.address || 'Central Farm gate',
-      quantityTons: listing.quantityTons,
+      quantityTons: Number(listing.quantityTons),
       wasteType: listing.wasteType,
       status: listing.status,
     },
@@ -143,15 +189,6 @@ export const ListingDetailPage: React.FC = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setShowQRTrackingModal(true)}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-          >
-            <QrCode className="h-3.5 w-3.5 text-emerald-400" />
-            <span>QR &amp; 10-Stage Tracker</span>
-          </button>
-
           <button
             type="button"
             onClick={() => setShowCertificateModal(true)}

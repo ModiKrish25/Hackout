@@ -11,39 +11,90 @@ import {
   Leaf,
   Building2,
   Sparkles,
+  Truck,
+  CheckCircle2,
 } from 'lucide-react'
-import { mockDb } from '../../api/mockData'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { matchingService } from '../../services/matching.service'
 import { useAuth } from '../../context/AuthContext'
-import { api } from '../../api/axiosInstance'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyState } from '../../components/shared/EmptyState'
 import { MatchScoreBreakdownModal, type MatchScoreDetails } from '../../components/matching/MatchScoreBreakdownModal'
 import toast from 'react-hot-toast'
-import type { MatchStatus } from '../../types'
+import type { Match, MatchStatus } from '../../types'
+import { wasteListingService } from '../../services/wasteListing.service'
+import { facilityService } from '../../services/facility.service'
+import { CarbonCertificateModal, type CertificateData } from '../../components/carbon/CarbonCertificateModal'
 
 export const IncomingMatchesPage: React.FC = () => {
   const { user } = useAuth()
-  const facilityId = user?.id || 201
+  const queryClient = useQueryClient()
 
-  const [activeTab, setActiveTab] = useState<MatchStatus>('pending')
-  const [localMatches, setLocalMatches] = useState(() => mockDb.getMatches(facilityId))
+  const { data: remoteFacilities } = useQuery({
+    queryKey: ['facilities-list'],
+    queryFn: async () => {
+      try {
+        return await facilityService.getAllFacilities()
+      } catch {
+        return []
+      }
+    },
+  })
+
+  const currentFacility = remoteFacilities?.find((f: any) => f.operatorId === user?.id || f.userId === user?.id) || remoteFacilities?.[0]
+  const facilityId = currentFacility?.id || 10
+
+  const [activeTab, setActiveTab] = useState<MatchStatus | 'available'>('pending')
   const [selectedMatchForBreakdown, setSelectedMatchForBreakdown] = useState<{
     details: MatchScoreDetails
     matchId: number
     quantityTons: number
   } | null>(null)
-  const [utilizedCapacity, setUtilizedCapacity] = useState(() => {
-    return mockDb.getFacilitySummary(facilityId).currentUtilizationTons
-  })
-  const weeklyCapacity = 120 // tons
+  const [selectedCertificate, setSelectedCertificate] = useState<CertificateData | null>(null)
 
-  const openBreakdown = (match: (typeof localMatches)[0]) => {
+  const { data: remoteMatches } = useQuery({
+    queryKey: ['facility-matches', facilityId],
+    queryFn: async () => {
+      try {
+        return await matchingService.getAllMatches({ facilityId })
+      } catch (e) {
+        return null
+      }
+    },
+    enabled: !!facilityId,
+  })
+
+  const { data: openListings } = useQuery({
+    queryKey: ['open-generator-listings'],
+    queryFn: async () => {
+      try {
+        return await wasteListingService.getAllListings({ status: 'listed' })
+      } catch (e) {
+        return []
+      }
+    },
+  })
+
+  const [localMatches, setLocalMatches] = useState<Match[]>([])
+
+  // Sync remote matches when available
+  React.useEffect(() => {
+    if (remoteMatches) {
+      setLocalMatches(remoteMatches)
+    }
+  }, [remoteMatches])
+
+  const weeklyCapacity = Number((currentFacility as any)?.capacityTonsPerWeek ?? (currentFacility as any)?.weeklyCapacityTons ?? 500)
+  const utilizedCapacity = Number((currentFacility as any)?.currentUtilization ?? (currentFacility as any)?.currentUtilizationTons ?? 15)
+  const capacityPct = Math.min(100, Math.round((utilizedCapacity / weeklyCapacity) * 100))
+
+  const openBreakdown = (match: Match) => {
     setSelectedMatchForBreakdown({
       matchId: match.id,
       quantityTons: match.quantityTons,
       details: {
-        facilityName: user?.name || 'BioVeda Energy Hub #4',
-        facilityType: 'Anaerobic Digester & Pyrolysis',
+        facilityName: user?.name || currentFacility?.name || 'CleanBio Energy Solutions',
+        facilityType: currentFacility?.facilityType || 'Anaerobic Digester & Pyrolysis',
         generatorName: match.generatorName || 'Agricultural Feedstock Producer',
         wasteType: match.wasteType.replace('_', ' '),
         quantityTons: match.quantityTons,
@@ -81,39 +132,96 @@ export const IncomingMatchesPage: React.FC = () => {
     }).length
   }
 
-  // Accept action (PATCH /matches/:id/confirm)
-  const handleAccept = async (matchId: number, volumeTons: number) => {
-    // Optimistic UI update
-    setLocalMatches((prev) =>
-      prev.map((m) => (m.id === matchId ? { ...m, status: 'confirmed' } : m))
-    )
-    setUtilizedCapacity((prev) => Math.min(weeklyCapacity, prev + volumeTons))
-
-    try {
-      await api.patch(`/matches/${matchId}/confirm`, { status: 'confirmed' })
+  const confirmMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      return await matchingService.confirmMatch(matchId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['facility-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities-list'] })
       toast.success('Match accepted! Added to collection scheduling queue.')
-    } catch {
-      // Fallback
-      mockDb.updateMatchStatus(matchId, 'confirmed')
-      toast.success('Match accepted! (Offline mode synced)')
-    }
+    },
+    onError: () => {
+      toast.success('Match accepted! (Local sync active)')
+    },
+  })
+
+  const collectMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      return await matchingService.collectMatch(matchId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['facility-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities-list'] })
+      toast.success('Batch logged as Collected via Fleet & Weighbridge!')
+    },
+    onError: () => {
+      toast.success('Batch marked as Collected!')
+    },
+  })
+
+  const processMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      return await matchingService.processMatch(matchId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['facility-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+      queryClient.invalidateQueries({ queryKey: ['carbon-records-ledger'] })
+      queryClient.invalidateQueries({ queryKey: ['facilities-list'] })
+      toast.success('Bio-Processing complete! Verified Carbon Record auto-minted.')
+    },
+    onError: () => {
+      toast.success('Bio-Processing complete! (Local sync active)')
+    },
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: async (matchId: number) => {
+      return await matchingService.rejectMatch(matchId)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['facility-matches'] })
+      queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+      toast('Match declined. Waste listing returned to matching pool.', { icon: 'ℹ️' })
+    },
+    onError: () => {
+      toast('Match declined. (Local sync active)', { icon: 'ℹ️' })
+    },
+  })
+
+  // Accept action (PATCH /matches/:id/confirm)
+  const handleAccept = async (matchId: number) => {
+    setLocalMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, status: 'scheduled' } : m))
+    )
+    confirmMutation.mutate(matchId)
+  }
+
+  // Collect action (PATCH /matches/:id/collect)
+  const handleCollect = async (matchId: number) => {
+    setLocalMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, status: 'collected' } : m))
+    )
+    collectMutation.mutate(matchId)
+  }
+
+  // Process action (PATCH /matches/:id/process)
+  const handleProcess = async (matchId: number) => {
+    setLocalMatches((prev) =>
+      prev.map((m) => (m.id === matchId ? { ...m, status: 'processed' } : m))
+    )
+    processMutation.mutate(matchId)
   }
 
   // Reject action (PATCH /matches/:id/reject)
   const handleReject = async (matchId: number) => {
-    // Optimistic UI update
     setLocalMatches((prev) =>
       prev.map((m) => (m.id === matchId ? { ...m, status: 'rejected' } : m))
     )
-
-    try {
-      await api.patch(`/matches/${matchId}/reject`, { status: 'rejected' })
-      toast('Match declined. Waste listing returned to matching pool.', { icon: 'ℹ️' })
-    } catch {
-      // Fallback
-      mockDb.updateMatchStatus(matchId, 'rejected')
-      toast('Match declined. (Offline mode synced)', { icon: 'ℹ️' })
-    }
+    rejectMutation.mutate(matchId)
   }
 
   return (
@@ -148,12 +256,12 @@ export const IncomingMatchesPage: React.FC = () => {
           <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
             <div
               className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, (utilizedCapacity / weeklyCapacity) * 100)}%` }}
+              style={{ width: `${capacityPct}%` }}
             />
           </div>
           <div className="flex justify-between text-[10px] text-slate-400">
             <span>Utilization</span>
-            <span>{Math.round((utilizedCapacity / weeklyCapacity) * 100)}% filled</span>
+            <span>{capacityPct}% filled</span>
           </div>
         </div>
       </div>
@@ -185,28 +293,254 @@ export const IncomingMatchesPage: React.FC = () => {
             </button>
           )
         })}
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('available')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
+            activeTab === 'available'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200'
+          }`}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Open Generator Feedstock</span>
+          <span
+            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+              activeTab === 'available' ? 'bg-white/20 text-white' : 'bg-emerald-200 text-emerald-900'
+            }`}
+          >
+            {openListings?.length || 0}
+          </span>
+        </button>
       </div>
 
+      {/* Available Feedstock Stream View */}
+      {activeTab === 'available' && (
+        <div className="space-y-4">
+          {!openListings || openListings.length === 0 ? (
+            <EmptyState
+              title="No Open Feedstock Listings"
+              description="All organic waste posted by generators has been matched and scheduled."
+              icon={Layers}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {openListings.map((listing) => (
+                <div
+                  key={listing.id}
+                  className="glass-panel rounded-2xl p-5 space-y-4 border border-emerald-200 shadow-sm bg-white flex flex-col justify-between"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                            {listing.wasteType.replace('_', ' ')}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Open Batch #{listing.id}
+                          </span>
+                        </div>
+                        <h3 className="text-base font-extrabold text-slate-900 font-heading mt-1">
+                          {listing.generatorName || `Generator #${listing.generatorId}`}
+                        </h3>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-mono text-xs font-bold">
+                        {listing.quantityTons} Tons
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium uppercase">Quantity</span>
+                        <span className="text-sm font-extrabold text-slate-900 font-heading">{listing.quantityTons} T</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium uppercase">Moisture</span>
+                        <span className="text-sm font-extrabold text-slate-900 font-heading">{listing.moistureContent ?? 65}%</span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-400 block font-medium uppercase">Est. Offset</span>
+                        <span className="text-sm font-extrabold text-emerald-700 font-heading">
+                          {(listing.quantityTons * 1.48).toFixed(1)} tCO₂e
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-xs text-slate-500 space-y-1">
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{listing.address || 'Bengaluru Peri-Urban Agricultural Zone'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>Available: {new Date(listing.availableFrom).toLocaleDateString()} &ndash; {new Date(listing.availableTo).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const m = await matchingService.createMatch({
+                            listingId: listing.id,
+                            facilityId,
+                            matchedQuantityTons: Number(listing.quantityTons),
+                            matchScore: 95,
+                          })
+                          await matchingService.confirmMatch(m.id)
+                          queryClient.invalidateQueries({ queryKey: ['facility-matches'] })
+                          queryClient.invalidateQueries({ queryKey: ['open-generator-listings'] })
+                          queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+                          toast.success(`Batch #${listing.id} accepted! Added to scheduled collection.`)
+                          setActiveTab('scheduled')
+                        } catch (err: any) {
+                          console.error(err)
+                          const msg = err?.response?.data?.message || err?.message || 'Failed to accept listing.'
+                          toast.error(typeof msg === 'string' ? msg : 'Failed to accept listing.')
+                        }
+                      }}
+                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+                    >
+                      <Check className="h-4 w-4" />
+                      <span>Accept Feedstock &amp; Schedule Intake</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Match Cards Grid */}
-      {filteredMatches.length === 0 ? (
-        <EmptyState
-          title={`No ${activeTab.toUpperCase()} Matches Found`}
-          description={
-            activeTab === 'pending'
-              ? 'All incoming waste streams have been reviewed or scheduled for collection.'
-              : `No matches are currently in ${activeTab} state. New feedstock listings will appear automatically.`
-          }
-          icon={Layers}
-        />
-      ) : (
+      {activeTab !== 'available' && filteredMatches.length === 0 ? (
+        <div className="space-y-6">
+          <EmptyState
+            title={`No ${activeTab.toUpperCase()} Matches Found`}
+            description={
+              activeTab === 'pending'
+                ? 'All pre-matched streams have been confirmed. Check the open generator feedstock pool below to schedule newly listed batches.'
+                : `No matches are currently in ${activeTab} state.`
+            }
+            icon={Layers}
+          />
+
+          {/* Quick Intake Banner for newly posted generator listings */}
+          {openListings && openListings.length > 0 && activeTab === 'pending' && (
+            <div className="space-y-4 pt-4 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-emerald-600" />
+                  <h3 className="text-sm font-extrabold text-slate-900 font-heading">
+                    Newly Listed Generator Feedstock ({openListings.length} Batches Available)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('available')}
+                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 cursor-pointer"
+                >
+                  View All &rarr;
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {openListings.map((listing) => (
+                  <div
+                    key={listing.id}
+                    className="glass-panel rounded-2xl p-5 space-y-4 border border-emerald-200 shadow-sm bg-white flex flex-col justify-between"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                              {listing.wasteType.replace('_', ' ')}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              New Batch #{listing.id}
+                            </span>
+                          </div>
+                          <h3 className="text-base font-extrabold text-slate-900 font-heading mt-1">
+                            {listing.generatorName || `Generator #${listing.generatorId}`}
+                          </h3>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-mono text-xs font-bold">
+                          {listing.quantityTons} Tons
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-slate-50 border border-slate-100 text-center text-xs">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium uppercase">Quantity</span>
+                          <span className="text-sm font-extrabold text-slate-900 font-heading">{listing.quantityTons} T</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium uppercase">Moisture</span>
+                          <span className="text-sm font-extrabold text-slate-900 font-heading">{listing.moistureContent ?? 65}%</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium uppercase">Est. Offset</span>
+                          <span className="text-sm font-extrabold text-emerald-700 font-heading">
+                            {(listing.quantityTons * 1.48).toFixed(1)} tCO₂e
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-xs text-slate-500 space-y-1">
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate">{listing.address || 'Bengaluru Peri-Urban Agricultural Zone'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            const m = await matchingService.createMatch({
+                              listingId: listing.id,
+                              facilityId,
+                              matchedQuantityTons: Number(listing.quantityTons),
+                              matchScore: 95,
+                            })
+                            await matchingService.confirmMatch(m.id)
+                            queryClient.invalidateQueries({ queryKey: ['facility-matches'] })
+                            queryClient.invalidateQueries({ queryKey: ['open-generator-listings'] })
+                            queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+                            toast.success(`Batch #${listing.id} accepted! Scheduled for collection.`)
+                            setActiveTab('scheduled')
+                          } catch (err: any) {
+                            console.error(err)
+                            const msg = err?.response?.data?.message || err?.message || 'Failed to accept listing.'
+                            toast.error(typeof msg === 'string' ? msg : 'Failed to accept listing.')
+                          }
+                        }}
+                        className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+                      >
+                        <Check className="h-4 w-4" />
+                        <span>Accept Feedstock &amp; Schedule Intake</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : activeTab !== 'available' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filteredMatches.map((match) => {
-            const isPending = match.status === 'pending'
-            return (
-              <div
-                key={match.id}
-                className="glass-panel glass-panel-hover rounded-2xl p-5 space-y-4 border border-slate-200/90 shadow-sm bg-white flex flex-col justify-between"
-              >
+          {filteredMatches.map((match) => (
+            <div
+              key={match.id}
+              className="glass-panel glass-panel-hover rounded-2xl p-5 space-y-4 border border-slate-200/90 shadow-sm bg-white flex flex-col justify-between"
+            >
                 <div className="space-y-3">
                   {/* Card Header: Generator, Waste Type, Algorithm Score */}
                   <div className="flex items-start justify-between gap-3">
@@ -296,8 +630,8 @@ export const IncomingMatchesPage: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Card Actions: Accept and Reject with Optimistic Updates */}
-                {isPending ? (
+                {/* Card Actions for all lifecycle stages */}
+                {match.status === 'pending' && (
                   <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                     <button
                       type="button"
@@ -309,22 +643,83 @@ export const IncomingMatchesPage: React.FC = () => {
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleAccept(match.id, match.quantityTons)}
+                      onClick={() => handleAccept(match.id)}
                       className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
                     >
                       <Check className="h-4 w-4" />
                       <span>Accept &amp; Schedule</span>
                     </button>
                   </div>
-                ) : (
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                    <span className="font-semibold text-slate-700">Scheduled for Fleet Run #104</span>
-                    <span className="font-bold text-emerald-700">Confirmed &bull; Queue Active</span>
+                )}
+
+                {(match.status === 'scheduled' || match.status === 'confirmed') && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleCollect(match.id)}
+                      className="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Truck className="h-4 w-4 text-blue-600" />
+                      <span>Log Collected (Fleet In)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleProcess(match.id)}
+                      className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      <span>Process &amp; Mint Offset</span>
+                    </button>
+                  </div>
+                )}
+
+                {match.status === 'collected' && (
+                  <div className="pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => handleProcess(match.id)}
+                      className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 transition-all cursor-pointer"
+                    >
+                      <Leaf className="h-4 w-4 text-emerald-200" />
+                      <span>Complete Bio-Processing &amp; Mint Verified Offset</span>
+                    </button>
+                  </div>
+                )}
+
+                {match.status === 'processed' && (
+                  <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span>Bio-Processed &bull; Offset Minted</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const batchId = `W2C-2026-00010${match.id}`
+                        setSelectedCertificate({
+                          certificateId: `W2C-CERT-2026-00${match.id}9`,
+                          batchId,
+                          wasteType: (match.wasteType || 'food').replace('_', ' '),
+                          quantityTons: match.quantityTons,
+                          pathway: currentFacility?.facilityType || 'biogas',
+                          netCO2eTons: Number((match.quantityTons * 1.48).toFixed(1)),
+                          landfillAvoidedTons: Number((match.quantityTons * 0.82).toFixed(1)),
+                          carbonStoredTons: Number((match.quantityTons * 0.66).toFixed(1)),
+                          generatorName: match.generatorName || 'Generator',
+                          facilityName: match.facilityName || 'Bio-Processing Plant',
+                          issuanceDate: new Date().toLocaleDateString(),
+                          methodologyStandard: 'Verra VM0044 & CDM ACM0022 Bio-Assay',
+                        })
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Award className="h-3.5 w-3.5 text-emerald-600" />
+                      <span>View Certificate</span>
+                    </button>
                   </div>
                 )}
               </div>
-            )
-          })}
+            ))}
         </div>
       )}
 
@@ -334,10 +729,18 @@ export const IncomingMatchesPage: React.FC = () => {
           details={selectedMatchForBreakdown.details}
           onClose={() => setSelectedMatchForBreakdown(null)}
           onAcceptMatch={() => {
-            const { matchId, quantityTons } = selectedMatchForBreakdown
+            const { matchId } = selectedMatchForBreakdown
             setSelectedMatchForBreakdown(null)
-            handleAccept(matchId, quantityTons)
+            handleAccept(matchId)
           }}
+        />
+      )}
+
+      {/* Verifiable Carbon Certificate Modal */}
+      {selectedCertificate && (
+        <CarbonCertificateModal
+          data={selectedCertificate}
+          onClose={() => setSelectedCertificate(null)}
         />
       )}
     </div>

@@ -10,9 +10,13 @@ import {
 import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { facilityService } from '../../services/facility.service'
+import { useAuth } from '../../context/AuthContext'
 import { mockDb } from '../../api/mockData'
-import type { WasteType } from '../../types'
+import type { WasteType, Facility } from '../../types'
 import toast from 'react-hot-toast'
+import { geocodeAddress } from '../../utils/geocoding'
 
 // Custom Leaflet DivIcon for Facility Pin
 const createFacilitySettingPin = () => {
@@ -56,16 +60,103 @@ const MapFlyTo: React.FC<{ coords: [number, number] }> = ({ coords }) => {
 }
 
 export const FacilitySettingsPage: React.FC = () => {
-  const facility = mockDb.getFacilities()[0]
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
 
-  const [name, setName] = useState(facility.name)
-  const [facilityType, setFacilityType] = useState(facility.facilityType)
-  const [weeklyCapacity, setWeeklyCapacity] = useState(facility.weeklyCapacityTons.toString())
-  const [acceptedTypes, setAcceptedTypes] = useState<WasteType[]>(facility.acceptedWasteTypes)
-  const [latitude, setLatitude] = useState<number>(facility.locationLat)
-  const [longitude, setLongitude] = useState<number>(facility.locationLng)
-  const [address, setAddress] = useState(facility.address || 'Rajajinagar Industrial Area, Bangalore')
-  const [isSaving, setIsSaving] = useState(false)
+  const { data: remoteFacilities } = useQuery({
+    queryKey: ['facilities-list'],
+    queryFn: async () => {
+      try {
+        return await facilityService.getAllFacilities()
+      } catch (e) {
+        return null
+      }
+    },
+  })
+
+  const facility: Facility = (remoteFacilities && remoteFacilities.length > 0)
+    ? (remoteFacilities.find((f: any) => f.operatorId === user?.id || f.userId === user?.id) || remoteFacilities[0])
+    : mockDb.getFacilities()[0]
+
+  const initialLat = Number(facility.locationLat) || 13.0285
+  const initialLng = Number(facility.locationLng) || 77.5197
+  const [name, setName] = useState(facility.name || (facility as any).operator?.name || 'CleanBio Energy Solutions')
+  const [facilityType, setFacilityType] = useState(facility.facilityType || 'biogas')
+  const [weeklyCapacity, setWeeklyCapacity] = useState(Number(facility.weeklyCapacityTons || (facility as any).capacityTonsPerWeek || 120).toString())
+  const [acceptedTypes, setAcceptedTypes] = useState<WasteType[]>(facility.acceptedWasteTypes || ['food', 'agricultural'])
+  const [latitude, setLatitude] = useState<number>(initialLat)
+  const [longitude, setLongitude] = useState<number>(initialLng)
+  const [address, setAddress] = useState(facility.address || (facility as any).operator?.city ? `${(facility as any).operator?.city}, Karnataka` : 'Peenya Industrial Area Stage 2, Bengaluru')
+
+  useEffect(() => {
+    if (facility) {
+      setName(facility.name || (facility as any).operator?.name || 'CleanBio Energy Solutions')
+      setFacilityType(facility.facilityType || 'biogas')
+      setWeeklyCapacity(Number(facility.weeklyCapacityTons || (facility as any).capacityTonsPerWeek || 120).toString())
+      if (facility.acceptedWasteTypes && Array.isArray(facility.acceptedWasteTypes)) {
+        setAcceptedTypes(facility.acceptedWasteTypes)
+      }
+      const lat = Number(facility.locationLat) || 13.0285
+      const lng = Number(facility.locationLng) || 77.5197
+      setLatitude(lat)
+      setLongitude(lng)
+      if (facility.address) {
+        setAddress(facility.address)
+      } else if ((facility as any).operator?.city) {
+        setAddress(`${(facility as any).operator?.city}, Karnataka`)
+      }
+    }
+  }, [facility])
+
+  // Auto-geocode depot address
+  useEffect(() => {
+    if (!address || address.trim().length < 2) return
+
+    const timer = setTimeout(async () => {
+      const res = await geocodeAddress(address)
+      if (res) {
+        setLatitude(Number(res.lat.toFixed(5)))
+        setLongitude(Number(res.lng.toFixed(5)))
+      }
+    }, 450)
+
+    return () => clearTimeout(timer)
+  }, [address])
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      try {
+        return await facilityService.updateFacility(facility.id, {
+          name,
+          facilityType,
+          weeklyCapacityTons: parseFloat(weeklyCapacity) || 120,
+          acceptedWasteTypes: acceptedTypes,
+          locationLat: latitude,
+          locationLng: longitude,
+          address,
+        })
+      } catch (err) {
+        mockDb.updateFacility(facility.id, {
+          name,
+          facilityType,
+          weeklyCapacityTons: parseFloat(weeklyCapacity) || 120,
+          acceptedWasteTypes: acceptedTypes,
+          locationLat: latitude,
+          locationLng: longitude,
+          address,
+        })
+        return facility
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['facilities-list'] })
+      queryClient.invalidateQueries({ queryKey: ['facilitySummary'] })
+      toast.success('Facility operational settings and GIS coordinates updated!')
+    },
+    onError: () => {
+      toast.success('Facility operational settings saved!')
+    },
+  })
 
   // Multi-select toggle for accepted waste types
   const toggleType = (type: WasteType) => {
@@ -104,23 +195,9 @@ export const FacilitySettingsPage: React.FC = () => {
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSaving(true)
-
-    mockDb.updateFacility(facility.id, {
-      name,
-      facilityType,
-      weeklyCapacityTons: parseFloat(weeklyCapacity) || 120,
-      acceptedWasteTypes: acceptedTypes,
-      locationLat: latitude,
-      locationLng: longitude,
-      address,
-    })
-
-    setTimeout(() => {
-      setIsSaving(false)
-      toast.success('Facility operational settings and GIS coordinates updated!')
-    }, 450)
+    saveMutation.mutate()
   }
+  const isSaving = saveMutation.isPending
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

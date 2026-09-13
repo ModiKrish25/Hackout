@@ -36,6 +36,10 @@ export class CreateWasteListingDto {
     @IsNotEmpty()
     locationLng: number;
 
+    @ApiPropertyOptional({ description: 'Pickup gate address or landmark', example: 'Bengaluru Ag Farmgate, Gate #2' })
+    @IsOptional()
+    address?: string;
+
     @ApiProperty({ description: 'Availability start datetime (ISO string)', example: '2026-09-12T10:00:00.000Z' })
     @IsDateString()
     @IsNotEmpty()

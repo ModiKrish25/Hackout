@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,8 +21,10 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-lea
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../../context/AuthContext'
-import { api } from '../../api/axiosInstance'
+import { wasteListingService } from '../../services/wasteListing.service'
 import toast from 'react-hot-toast'
+
+import { geocodeAddress } from '../../utils/geocoding'
 
 // Zod schema for Waste Listing
 const listingSchema = z
@@ -30,18 +32,18 @@ const listingSchema = z
     wasteType: z.enum(['agricultural', 'food', 'manure', 'industrial_organic'] as const, {
       message: 'Please select a valid waste category',
     }),
-    quantityTons: z
+    quantityTons: z.coerce
       .number({ message: 'Quantity is required' })
       .positive('Quantity must be greater than 0')
       .max(1000, 'Maximum per batch is 1000 tons'),
-    moistureContent: z
+    moistureContent: z.coerce
       .number({ message: 'Moisture is required' })
       .min(0, 'Moisture percentage cannot be negative')
       .max(100, 'Moisture percentage cannot exceed 100%'),
     availableFrom: z.string().min(1, 'Availability start date is required'),
     availableTo: z.string().min(1, 'Availability end date is required'),
-    locationLat: z.number().min(-90).max(90),
-    locationLng: z.number().min(-180).max(180),
+    locationLat: z.coerce.number().min(-90).max(90),
+    locationLng: z.coerce.number().min(-180).max(180),
     address: z.string().min(3, 'Pickup address or landmark is required'),
   })
   .refine((data) => new Date(data.availableTo) >= new Date(data.availableFrom), {
@@ -127,22 +129,41 @@ export const PostListingPage: React.FC = () => {
 
   const watchedLat = watch('locationLat')
   const watchedLng = watch('locationLng')
+  const watchedAddress = watch('address')
   const watchedWasteType = watch('wasteType')
   const watchedQuantity = watch('quantityTons') || 0
+  const [isGeocoding, setIsGeocoding] = useState(false)
+
+  // Auto-geocode whenever user modifies the address input field
+  useEffect(() => {
+    if (!watchedAddress || watchedAddress.trim().length < 2) return
+
+    const timer = setTimeout(async () => {
+      setIsGeocoding(true)
+      const res = await geocodeAddress(watchedAddress)
+      setIsGeocoding(false)
+      if (res) {
+        setValue('locationLat', Number(res.lat.toFixed(5)))
+        setValue('locationLng', Number(res.lng.toFixed(5)))
+      }
+    }, 450)
+
+    return () => clearTimeout(timer)
+  }, [watchedAddress, setValue])
 
   // React Query Mutation with instant toast feedback & cache invalidation
   const createListingMutation = useMutation({
     mutationFn: async (payload: ListingFormValues) => {
-      return await api.post('/waste-listings', {
-        generatorId: user?.id || 101,
-        generatorName: user?.name || 'Aarav Sharma (GreenAgro Farms)',
+      const fromDate = new Date(payload.availableFrom).toISOString()
+      const toDate = new Date(payload.availableTo).toISOString()
+      return await wasteListingService.createListing({
         wasteType: payload.wasteType,
-        quantityTons: payload.quantityTons,
-        moistureContent: payload.moistureContent,
-        availableFrom: payload.availableFrom,
-        availableTo: payload.availableTo,
-        locationLat: payload.locationLat,
-        locationLng: payload.locationLng,
+        quantityTons: Number(payload.quantityTons),
+        moistureContent: payload.moistureContent ? Number(payload.moistureContent) : undefined,
+        availableFrom: fromDate,
+        availableTo: toDate,
+        locationLat: Number(payload.locationLat),
+        locationLng: Number(payload.locationLng),
         address: payload.address,
       })
     },
@@ -154,7 +175,7 @@ export const PostListingPage: React.FC = () => {
       navigate('/generator/listings')
     },
     onError: (err: any) => {
-      toast.error(err?.message || 'Failed to post listing. Please try again.')
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to post listing. Please try again.')
     },
   })
 
@@ -269,7 +290,7 @@ export const PostListingPage: React.FC = () => {
                   type="number"
                   step="0.1"
                   min="0.1"
-                  {...register('quantityTons')}
+                  {...register('quantityTons', { valueAsNumber: true })}
                   placeholder="e.g. 15.0"
                   className={`w-full pl-9 pr-3.5 py-2 text-sm bg-white border rounded-xl focus:outline-none transition-all text-slate-800 ${
                     errors.quantityTons
@@ -297,7 +318,7 @@ export const PostListingPage: React.FC = () => {
                   step="1"
                   min="0"
                   max="100"
-                  {...register('moistureContent')}
+                  {...register('moistureContent', { valueAsNumber: true })}
                   placeholder="e.g. 25"
                   className={`w-full pl-9 pr-3.5 py-2 text-sm bg-white border rounded-xl focus:outline-none transition-all text-slate-800 ${
                     errors.moistureContent
@@ -384,13 +405,23 @@ export const PostListingPage: React.FC = () => {
                 <input
                   type="text"
                   {...register('address')}
-                  placeholder="e.g. Agritech Yard Gate #3, Hebbal Rural Road"
-                  className={`w-full pl-9 pr-3.5 py-2 text-sm bg-white border rounded-xl focus:outline-none transition-all text-slate-800 ${
+                  placeholder="e.g. Ahmedabad, Gujarat or Koramangala, Bengaluru"
+                  className={`w-full pl-9 pr-24 py-2 text-sm bg-white border rounded-xl focus:outline-none transition-all text-slate-800 ${
                     errors.address
                       ? 'border-red-400 focus:ring-2 focus:ring-red-400/20'
                       : 'border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500'
                   }`}
                 />
+                {isGeocoding ? (
+                  <span className="absolute right-3 top-2 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md flex items-center gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    Locating...
+                  </span>
+                ) : (
+                  <span className="absolute right-3 top-2 text-[10px] font-semibold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md pointer-events-none">
+                    Map Synced
+                  </span>
+                )}
               </div>
               {errors.address && (
                 <p className="text-xs text-red-600 font-medium">{errors.address.message}</p>

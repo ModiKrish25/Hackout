@@ -8,6 +8,21 @@ export interface CreateMatchPayload {
   matchScore?: number
 }
 
+const normalizeMatch = (m: any): Match => ({
+  id: m.id,
+  listingId: m.listingId,
+  facilityId: m.facilityId,
+  wasteType: m.listing?.wasteType || m.wasteType || 'food',
+  quantityTons: Number(m.matchedQuantityTons || m.listing?.quantityTons || m.quantityTons || 0),
+  generatorName: m.listing?.generator?.name || m.generatorName || (m.listing?.generatorId ? `Generator #${m.listing.generatorId}` : 'Organic Producer'),
+  facilityName: m.facility?.name || m.facility?.operator?.name || m.facilityName || 'Bio-Conversion Facility',
+  matchScore: m.matchScore ? Number(m.matchScore) : 92,
+  distanceKm: m.distanceKm ? Number(m.distanceKm) : 14.5,
+  status: m.status,
+  createdAt: m.createdAt,
+  address: m.listing?.address || 'Bengaluru Peri-Urban Agricultural Zone',
+})
+
 export const matchingService = {
   async findCandidates(listingId: number): Promise<MatchCandidate[]> {
     const res = (await apiClient.post(`/matches/find-candidates/${listingId}`)) as any
@@ -16,12 +31,17 @@ export const matchingService = {
 
   async createMatch(payload: CreateMatchPayload): Promise<Match> {
     const res = (await apiClient.post('/matches', payload)) as any
-    return res as Match
+    return normalizeMatch(res)
   },
 
   async confirmMatch(id: number): Promise<Match> {
     const res = (await apiClient.patch(`/matches/${id}/confirm`)) as any
-    return res as Match
+    return normalizeMatch(res)
+  },
+
+  async collectMatch(id: number): Promise<Match> {
+    const res = (await apiClient.patch(`/matches/${id}/collect`)) as any
+    return normalizeMatch(res)
   },
 
   async rejectMatch(id: number): Promise<{ message: string }> {
@@ -31,17 +51,21 @@ export const matchingService = {
 
   async processMatch(id: number): Promise<{ match: Match; carbonRecord: any }> {
     const res = (await apiClient.patch(`/matches/${id}/process`)) as any
-    return res
+    return {
+      match: normalizeMatch(res.match || res),
+      carbonRecord: res.carbonRecord,
+    }
   },
 
   async getAllMatches(params?: { facilityId?: number; listingId?: number; status?: string }): Promise<Match[]> {
     const res = (await apiClient.get('/matches', { params })) as any
-    return res as Match[]
+    if (!Array.isArray(res)) return []
+    return res.map(normalizeMatch)
   },
 
   async getMatchById(id: number): Promise<Match> {
     const res = (await apiClient.get(`/matches/${id}`)) as any
-    return res as Match
+    return normalizeMatch(res)
   },
 }
 

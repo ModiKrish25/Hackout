@@ -50,6 +50,9 @@ export class WasteListing {
     })
     locationLng: number;
 
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    address: string | null;
+
     @Column({ type: 'datetime' })
     availableFrom: Date;
 

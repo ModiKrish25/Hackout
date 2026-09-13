@@ -9,11 +9,72 @@ import {
   FileSpreadsheet,
   QrCode,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { carbonRecordService } from '../../services/carbonRecord.service'
 import { mockDb } from '../../api/mockData'
 import { CarbonCertificateModal, type CertificateData } from '../../components/carbon/CarbonCertificateModal'
 import { BatchTrackingModal, type BatchTrackingDetails } from '../../components/tracking/BatchTrackingModal'
 import Papa from 'papaparse'
 import toast from 'react-hot-toast'
+import type { CarbonRecord } from '../../types'
+
+function normalizeCarbonRecord(r: any): CarbonRecord {
+  const match = r.match || {}
+  const listing = match.listing || {}
+  const generator = listing.generator || {}
+  const facility = match.facility || {}
+
+  const generatorName =
+    generator.name ||
+    r.generatorName ||
+    (listing.generatorId ? `Generator #${listing.generatorId}` : 'Regional Agro Producer')
+  const facilityName = facility.name || r.facilityName || 'Bio-Conversion Plant'
+  const wasteType = (r.wasteType || listing.wasteType || 'agricultural') as any
+  const conversionPathway = r.conversionPathway || facility.facilityType || 'biogas'
+  const quantityTons = Number(r.quantityTons || match.matchedQuantityTons || listing.quantityTons || 0)
+  const co2SequesteredTons = Number(
+    r.co2SequesteredTons !== undefined
+      ? r.co2SequesteredTons
+      : (quantityTons * 0.35).toFixed(2),
+  )
+  const landfillMethaneBaselineTons = Number(
+    r.landfillBaselineEmissionsTons !== undefined
+      ? r.landfillBaselineEmissionsTons
+      : r.landfillMethaneBaselineTons !== undefined
+      ? r.landfillMethaneBaselineTons
+      : (quantityTons * 0.4).toFixed(2),
+  )
+  const netCarbonBenefitTons = Number(
+    r.netCarbonBenefitTons !== undefined
+      ? r.netCarbonBenefitTons
+      : r.netCo2e !== undefined
+      ? r.netCo2e
+      : (quantityTons * 0.7).toFixed(2),
+  )
+  const processedDate = r.createdAt
+    ? new Date(r.createdAt).toISOString().split('T')[0]
+    : r.processedDate || new Date().toISOString().split('T')[0]
+
+  return {
+    id: r.id || 1,
+    matchId: r.matchId || match.id || 1,
+    wasteType,
+    conversionPathway,
+    quantityTons,
+    co2SequesteredTons,
+    landfillMethaneBaselineTons,
+    netCarbonBenefitTons,
+    generatorName,
+    facilityName,
+    processedDate,
+    baselineEmissions: Number(r.baselineEmissions || landfillMethaneBaselineTons),
+    storageEmissions: Number(r.storageEmissions || co2SequesteredTons),
+    transportEmissions: Number(r.transportEmissions || 0.05),
+    processingEmissions: Number(r.processingEmissions || 0.1),
+    netCo2e: netCarbonBenefitTons,
+    createdAt: r.createdAt || new Date().toISOString(),
+  } as CarbonRecord
+}
 
 export const ReportsPage: React.FC = () => {
   const [wasteTypeFilter, setWasteTypeFilter] = useState('all')
@@ -25,66 +86,79 @@ export const ReportsPage: React.FC = () => {
   const [selectedRecordForCertificate, setSelectedRecordForCertificate] = useState<CertificateData | null>(null)
   const [selectedTrackingBatch, setSelectedTrackingBatch] = useState<BatchTrackingDetails | null>(null)
 
-  const allRecords = mockDb.getCarbonRecords()
+  const { data: remoteRecords } = useQuery({
+    queryKey: ['carbon-records-ledger'],
+    queryFn: async () => {
+      try {
+        return await carbonRecordService.getAll()
+      } catch (e) {
+        return null
+      }
+    },
+  })
 
-  const openCertificate = (record: (typeof allRecords)[0]) => {
+  const allRecords: CarbonRecord[] = (remoteRecords && remoteRecords.length > 0)
+    ? remoteRecords.map(normalizeCarbonRecord)
+    : mockDb.getCarbonRecords().map(normalizeCarbonRecord)
+
+  const openCertificate = (record: CarbonRecord) => {
     const batchId = `W2C-2026-00010${record.id}`
     setSelectedRecordForCertificate({
       certificateId: `W2C-CERT-2026-00${record.id}9`,
       batchId,
-      wasteType: record.wasteType.replace('_', ' '),
+      wasteType: (record.wasteType || 'food').replace('_', ' '),
       quantityTons: record.quantityTons,
       pathway: record.conversionPathway,
       netCO2eTons: record.netCarbonBenefitTons,
-      landfillAvoidedTons: record.landfillMethaneBaselineTons,
+      landfillAvoidedTons: record.landfillMethaneBaselineTons || Number((record.quantityTons * 0.82).toFixed(1)),
       carbonStoredTons: record.co2SequesteredTons,
-      generatorName: record.generatorName,
-      facilityName: record.facilityName,
-      issuanceDate: record.processedDate,
+      generatorName: record.generatorName || 'Generator',
+      facilityName: record.facilityName || 'Bio-Processing Plant',
+      issuanceDate: record.processedDate || new Date().toLocaleDateString(),
       methodologyStandard: 'Verra VM0044 & CDM ACM0022 Bio-Assay',
     })
   }
 
-  const openTracking = (record: (typeof allRecords)[0]) => {
+  const openTracking = (record: CarbonRecord) => {
     const batchId = `W2C-2026-00010${record.id}`
     setSelectedTrackingBatch({
       batchId,
       listingId: record.id,
-      wasteType: record.wasteType.replace('_', ' '),
+      wasteType: (record.wasteType || 'food').replace('_', ' '),
       quantityTons: record.quantityTons,
-      generatorName: record.generatorName,
-      facilityName: record.facilityName,
+      generatorName: record.generatorName || 'Generator',
+      facilityName: record.facilityName || 'Bio-Processing Plant',
       facilityType: record.conversionPathway,
-      originAddress: `${record.generatorName} Facility Gate, Agri-Corridor`,
-      destinationAddress: `${record.facilityName}, Bio-Conversion Plant #2`,
+      originAddress: `${record.generatorName || 'Generator'} Facility Gate, Agri-Corridor`,
+      destinationAddress: `${record.facilityName || 'Bio-Plant'}, Bio-Conversion Plant #2`,
       driverName: 'Rajesh Kumar (Heavy Fleet #104)',
       truckNumber: 'KA-05-EV-4421',
       distanceKm: 28.5,
-      createdAt: record.processedDate,
+      createdAt: record.processedDate || new Date().toLocaleDateString(),
       currentStageIndex: 8, // 8 is CARBON IMPACT VERIFIED
     })
   }
 
-  // Apply filters
+  // Apply filters safely
   const filtered = allRecords.filter((r) => {
     const matchesWaste = wasteTypeFilter === 'all' || r.wasteType === wasteTypeFilter
     const matchesPathway =
-      pathwayFilter === 'all' || r.conversionPathway.toLowerCase().includes(pathwayFilter.toLowerCase())
+      pathwayFilter === 'all' || (r.conversionPathway || '').toLowerCase().includes(pathwayFilter.toLowerCase())
     const matchesSearch =
-      r.generatorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.facilityName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.conversionPathway.toLowerCase().includes(searchQuery.toLowerCase())
+      (r.generatorName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.facilityName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (r.conversionPathway || '').toLowerCase().includes(searchQuery.toLowerCase())
 
-    const recordDate = r.processedDate
+    const recordDate = r.processedDate || ''
     const matchesDate = (!startDate || recordDate >= startDate) && (!endDate || recordDate <= endDate)
 
     return matchesWaste && matchesPathway && matchesSearch && matchesDate
   })
 
   // Summary totals
-  const totalFilteredTons = filtered.reduce((acc, curr) => acc + curr.quantityTons, 0)
-  const totalFilteredGrossCO2 = filtered.reduce((acc, curr) => acc + curr.co2SequesteredTons, 0)
-  const totalFilteredNetCredits = filtered.reduce((acc, curr) => acc + curr.netCarbonBenefitTons, 0)
+  const totalFilteredTons = filtered.reduce((acc, curr) => acc + (Number(curr.quantityTons) || 0), 0)
+  const totalFilteredGrossCO2 = filtered.reduce((acc, curr) => acc + (Number(curr.co2SequesteredTons) || 0), 0)
+  const totalFilteredNetCredits = filtered.reduce((acc, curr) => acc + (Number(curr.netCarbonBenefitTons) || 0), 0)
 
   // One-click CSV Export via PapaParse
   const handleExportCSV = () => {
@@ -93,7 +167,7 @@ export const ReportsPage: React.FC = () => {
         'Audit Record ID': `CR-${r.id}`,
         'Generator Name': r.generatorName,
         'Processing Facility': r.facilityName,
-        'Waste Category': r.wasteType.toUpperCase(),
+        'Waste Category': (r.wasteType || '').toUpperCase(),
         'Quantity (Tons)': r.quantityTons,
         'Gross CO2 Sequestered (tCO2e)': r.co2SequesteredTons,
         'Landfill Methane Baseline (tCO2e)': r.landfillMethaneBaselineTons,

@@ -363,6 +363,15 @@ export const LoginPage: React.FC = () => {
               <Zap className="h-3.5 w-3.5 text-emerald-600" />
               <span>Quick Demo (CleanBio Biogas Facility)</span>
             </button>
+            <button
+              type="button"
+              onClick={() => handleQuickDemoLogin('municipality@example.com')}
+              disabled={isSubmitting}
+              className="w-full py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+            >
+              <Zap className="h-3.5 w-3.5 text-blue-600" />
+              <span>Quick Demo (BBMP Municipal Corporation)</span>
+            </button>
           </div>
         </div>
       </div>

@@ -142,15 +142,26 @@ export const HeroSection: React.FC = () => {
   const { role: activeAuthRole, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
 
-  // Role is directly determined by the authenticated session (or default to generator for public view)
-  const currentRole: 'generator' | 'facility' | 'municipality' =
-    activeAuthRole === 'municipality' || activeAuthRole === 'admin'
-      ? 'municipality'
-      : activeAuthRole === 'facility'
+  // Allow interactive role switching on the hero with default to auth role or generator
+  const [selectedRole, setSelectedRole] = useState<'generator' | 'facility' | 'municipality'>(
+    activeAuthRole === 'facility'
       ? 'facility'
+      : activeAuthRole === 'municipality' || activeAuthRole === 'admin'
+      ? 'municipality'
       : 'generator'
+  )
 
-  const currentHero = HERO_DATA[currentRole]
+  useEffect(() => {
+    if (activeAuthRole === 'facility') {
+      setSelectedRole('facility')
+    } else if (activeAuthRole === 'municipality' || activeAuthRole === 'admin') {
+      setSelectedRole('municipality')
+    } else if (activeAuthRole === 'generator') {
+      setSelectedRole('generator')
+    }
+  }, [activeAuthRole])
+
+  const currentHero = HERO_DATA[selectedRole]
 
   // Animated Blur Text state
   const [headlineIndex, setHeadlineIndex] = useState(0)
@@ -160,7 +171,7 @@ export const HeroSection: React.FC = () => {
   useEffect(() => {
     setHeadlineIndex(0)
     setIsBlurring(false)
-  }, [currentRole])
+  }, [selectedRole])
 
   // Continuous loop: blur text -> change text -> unblur text
   useEffect(() => {
@@ -176,7 +187,7 @@ export const HeroSection: React.FC = () => {
     }, 3600)
 
     return () => clearInterval(interval)
-  }, [currentHero.headlines.length, currentRole])
+  }, [currentHero.headlines.length, selectedRole])
 
   const handleLaunchCTA = () => {
     if (isAuthenticated && activeAuthRole) {
@@ -199,7 +210,7 @@ export const HeroSection: React.FC = () => {
         <div
           key={r}
           className={`absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-1000 ease-in-out transform scale-105 ${
-            currentRole === r ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            selectedRole === r ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
           style={{
             backgroundImage: `url('${HERO_DATA[r].backgroundImage}')`,
@@ -218,74 +229,74 @@ export const HeroSection: React.FC = () => {
         }}
       />
 
-      {/* Top Header Navigation (Image 1 Structure with Image 2 Logo) */}
+      {/* Top Header Navigation */}
       <header className="relative z-30 w-full border-b border-white/15 backdrop-blur-md bg-black/25 px-4 sm:px-8 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Waste2Carbon Brand Logo */}
+          {/* EcoTrace Brand Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="h-12 w-12 rounded-full p-1 bg-white/20 backdrop-blur-md border border-white/30 shadow-lg group-hover:scale-105 transition-transform flex items-center justify-center overflow-hidden">
+            <div className="h-11 w-11 rounded-2xl p-1 bg-white/20 backdrop-blur-md border border-white/30 shadow-lg group-hover:scale-105 transition-transform flex items-center justify-center overflow-hidden">
               <img
                 src="/logo.png"
-                alt="Waste2Carbon Logo"
+                alt="EcoTrace Logo"
                 className="h-full w-full object-contain"
               />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg sm:text-xl tracking-wider uppercase font-heading text-white drop-shadow-md">
-                  WASTE<span className="text-emerald-400">2CARBON</span>
+                  ECO<span className="text-emerald-400">TRACE</span>
                 </span>
                 <span className="text-[10px] align-super text-emerald-300 font-bold">TM</span>
               </div>
               <p className="text-[10px] text-slate-200 tracking-widest uppercase font-medium drop-shadow-xs">
-                Compliance &amp; Value Chain
+                Waste-to-Carbon Value Chain
               </p>
             </div>
           </Link>
 
           {/* Navigation Links in Center */}
           <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-slate-200">
-            <Link to="/home" className="hover:text-emerald-400 transition-colors text-white">
+            <Link
+              to="/home"
+              className="text-emerald-400 font-bold border-b-2 border-emerald-400 pb-0.5"
+            >
               Home
             </Link>
 
             {isAuthenticated ? (
               <>
                 <Link
-                  to={currentHero.ctaLink}
-                  className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-1.5"
+                  to={
+                    activeAuthRole === 'facility'
+                      ? '/facility/dashboard'
+                      : activeAuthRole === 'municipality' || activeAuthRole === 'admin'
+                      ? '/municipal/overview'
+                      : '/generator/dashboard'
+                  }
+                  className="text-slate-300 hover:text-white transition-colors"
                 >
-                  <span>{currentHero.name}</span>
+                  My Dashboard
                 </Link>
-                {currentRole === 'generator' && (
-                  <Link to="/generator/listings" className="hover:text-emerald-400 transition-colors">
-                    My Listings
-                  </Link>
-                )}
-                {currentRole === 'facility' && (
-                  <Link to="/facility/matches" className="hover:text-emerald-400 transition-colors">
-                    Incoming Matches
-                  </Link>
-                )}
-                {(currentRole === 'municipality' || activeAuthRole === 'admin') && (
-                  <Link to="/municipal/reports" className="hover:text-emerald-400 transition-colors">
-                    Audit Reports
-                  </Link>
-                )}
+                <Link
+                  to="/profile"
+                  className="text-slate-300 hover:text-white transition-colors"
+                >
+                  Profile &amp; GPS
+                </Link>
               </>
             ) : (
               <>
-                <Link to="/login" className="hover:text-emerald-400 transition-colors">
+                <Link to="/login" className="text-slate-300 hover:text-emerald-400 transition-colors">
                   Sign In
                 </Link>
-                <Link to="/register" className="hover:text-emerald-400 transition-colors">
+                <Link to="/register" className="text-slate-300 hover:text-emerald-400 transition-colors">
                   Create Account
                 </Link>
               </>
             )}
           </nav>
 
-          {/* Right Section: Phone (+91 7778040173 as in Image 1) + Launch Portal */}
+          {/* Right Section: Phone + Launch Portal */}
           <div className="flex items-center gap-3 sm:gap-4">
             <a
               href="tel:+917778040173"
@@ -314,7 +325,7 @@ export const HeroSection: React.FC = () => {
           <span>{currentHero.badge}</span>
           {isAuthenticated && user && (
             <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-[10px] text-emerald-300 uppercase font-bold border border-emerald-400/30">
-              {user.role}
+              Active: {user.role}
             </span>
           )}
         </div>

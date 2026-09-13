@@ -80,6 +80,7 @@ export interface Match {
   matchScore: number
   status: MatchStatus
   scheduledDate?: string
+  address?: string
   listing?: WasteListing
   facility?: Facility
   createdAt: string

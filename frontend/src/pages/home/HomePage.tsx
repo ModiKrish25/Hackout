@@ -49,14 +49,6 @@ export const HomePage: React.FC = () => {
               <p className="text-xs text-slate-600 leading-relaxed">
                 List agricultural crop residues, commercial food organics, or manure. Get matched with nearby facilities and receive monetary off-take + carbon offset credits.
               </p>
-              <div className="pt-2">
-                <Link
-                  to="/generator/dashboard"
-                  className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
-                >
-                  Explore Generator Features &rarr;
-                </Link>
-              </div>
             </div>
 
             {/* Pillar 2: Facility */}
@@ -71,14 +63,6 @@ export const HomePage: React.FC = () => {
               <p className="text-xs text-slate-600 leading-relaxed">
                 Review candidate feedstocks, accept scheduled batch deliveries, and run optimized TSP vehicle routes with turn-by-turn GIS coordinates.
               </p>
-              <div className="pt-2">
-                <Link
-                  to="/facility/dashboard"
-                  className="text-xs font-bold text-teal-700 hover:text-teal-800 flex items-center gap-1"
-                >
-                  Explore Facility Operations &rarr;
-                </Link>
-              </div>
             </div>
 
             {/* Pillar 3: Municipality */}
@@ -93,14 +77,6 @@ export const HomePage: React.FC = () => {
               <p className="text-xs text-slate-600 leading-relaxed">
                 Monitor live regional accumulation heatmaps, calculate EPA car equivalents, enforce diversion quotas, and export certified ESG carbon audit sheets.
               </p>
-              <div className="pt-2">
-                <Link
-                  to="/municipal/overview"
-                  className="text-xs font-bold text-blue-700 hover:text-blue-800 flex items-center gap-1"
-                >
-                  Explore Municipal Command &rarr;
-                </Link>
-              </div>
             </div>
           </div>
 
@@ -125,18 +101,18 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* Footer with Logo from Image 2 */}
+      {/* Footer */}
       <footer className="bg-slate-900 border-t border-slate-800 py-8 px-4 sm:px-8 text-white">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Waste2Carbon Logo" className="h-9 w-9 object-contain" />
+            <img src="/logo.png" alt="EcoTrace Logo" className="h-9 w-9 object-contain" />
             <div>
-              <span className="font-bold text-sm tracking-wide text-white">WASTE<span className="text-emerald-400">2CARBON</span> &bull; COMPLIANCE &amp; VALUE CHAIN</span>
+              <span className="font-bold text-sm tracking-wide text-white">ECO<span className="text-emerald-400">TRACE</span> &bull; COMPLIANCE &amp; VALUE CHAIN</span>
               <p className="text-[11px] text-slate-400">Waste-to-Carbon-Value Chain Tracker</p>
             </div>
           </div>
           <div className="text-xs text-slate-400">
-            &copy; 2026 Waste2Carbon Platform. 100% Environmental &amp; PCB Compliance Architecture.
+            &copy; 2026 EcoTrace Platform. 100% Environmental &amp; PCB Compliance Architecture.
           </div>
         </div>
       </footer>
