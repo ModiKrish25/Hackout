@@ -18,9 +18,11 @@ import {
   X,
   AlertTriangle,
   Calculator,
+  Zap,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { CarbonCalculatorModal } from '../carbon/CarbonCalculatorModal'
+import { JudgeDemoModal } from '../demo/JudgeDemoModal'
 
 export const Navbar: React.FC = () => {
   const { user, role, logout } = useAuth()
@@ -31,6 +33,7 @@ export const Navbar: React.FC = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showSignoutModal, setShowSignoutModal] = useState(false)
   const [showCalculatorModal, setShowCalculatorModal] = useState(false)
+  const [showJudgeDemoModal, setShowJudgeDemoModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown on outside click
@@ -209,8 +212,20 @@ export const Navbar: React.FC = () => {
           )}
         </nav>
 
-        {/* Right Section: Calculator & Avatar Dropdown */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        {/* Right Section: Live Demo, Calculator & Avatar Dropdown */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Interactive 60-Second Judge Pitch Demo */}
+          <button
+            type="button"
+            onClick={() => setShowJudgeDemoModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-sm hover:shadow-emerald-500/25 transition-all cursor-pointer"
+            title="Launch 60-Second Interactive Judge Pitch Demo (§Central Live Demo)"
+          >
+            <Zap className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
+            <span className="hidden sm:inline">⚡ Live Pitch Demo</span>
+            <span className="sm:hidden">⚡ Demo</span>
+          </button>
+
           {/* Quick Access Carbon Calculator Simulator */}
           <button
             type="button"
@@ -219,7 +234,7 @@ export const Navbar: React.FC = () => {
             title="Open Interactive Carbon Accounting Simulator (§6, §24)"
           >
             <Calculator className="h-3.5 w-3.5 text-emerald-600" />
-            <span className="hidden sm:inline">Carbon Calculator</span>
+            <span className="hidden md:inline">Carbon Calculator</span>
           </button>
 
           {/* User Profile Dropdown */}
@@ -339,6 +354,11 @@ export const Navbar: React.FC = () => {
       {/* Global Interactive Carbon Accounting Simulator Modal */}
       {showCalculatorModal && (
         <CarbonCalculatorModal onClose={() => setShowCalculatorModal(false)} />
+      )}
+
+      {/* Central 60-Second Interactive Judge Pitch Demo Modal */}
+      {showJudgeDemoModal && (
+        <JudgeDemoModal onClose={() => setShowJudgeDemoModal(false)} />
       )}
     </header>
   )

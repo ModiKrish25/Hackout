@@ -25,6 +25,7 @@ import { StatusBadge } from '../../components/shared/StatusBadge'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
 import { QRCodeGenerator } from '../../components/shared/QRCodeGenerator'
 import { BatchTrackingModal } from '../../components/tracking/BatchTrackingModal'
+import { DigitalPassportModal } from '../../components/tracking/DigitalPassportModal'
 import { CarbonCertificateModal } from '../../components/carbon/CarbonCertificateModal'
 import { CarbonCalculatorModal } from '../../components/carbon/CarbonCalculatorModal'
 import { MatchScoreBreakdownModal } from '../../components/matching/MatchScoreBreakdownModal'
@@ -36,6 +37,7 @@ export const ListingDetailPage: React.FC = () => {
 
   // Advanced feature modals state
   const [showQRTrackingModal, setShowQRTrackingModal] = useState(false)
+  const [showPassportModal, setShowPassportModal] = useState(false)
   const [showCertificateModal, setShowCertificateModal] = useState(false)
   const [showCalculatorModal, setShowCalculatorModal] = useState(false)
   const [showMatchModal, setShowMatchModal] = useState(false)
@@ -249,7 +251,16 @@ export const ListingDetailPage: React.FC = () => {
               </div>
 
               {/* Required buttons: "Scan / Print QR Label" & "Track Live Journey" */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowPassportModal(true)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer border border-emerald-500/30"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>Digital Passport</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => setShowQRTrackingModal(true)}
@@ -644,6 +655,54 @@ export const ListingDetailPage: React.FC = () => {
             carbonBenefitTons: Number(avoidedCO2e),
           }}
           onClose={() => setShowMatchModal(false)}
+        />
+      )}
+
+      {/* MODAL 5: Waste-to-Carbon Digital Passport */}
+      {showPassportModal && (
+        <DigitalPassportModal
+          passport={{
+            batchId: batchSerial,
+            wasteType: listing.wasteType,
+            quantityTons: listing.quantityTons,
+            generatorName: listing.generatorName || 'Aarav Sharma (GreenAgro Farms)',
+            generatorCert: 'AGR-PB-2024-8849-CERT',
+            originLocation: listing.address || 'Khanna Agricultural Cluster, Punjab',
+            originCoords: [listing.locationLat || 30.7046, listing.locationLng || 76.2219],
+            moistureAtDeparture: listing.moistureContent || 14.2,
+            departureTime: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
+            vehicleId: 'PB-10-BX-9042 (BS-VI Clean Diesel Tipper)',
+            driverName: 'Harpreet Singh',
+            driverCredential: 'CRED-IN-LOG-89104',
+            corridorRoute: 'GT Road NH-44 Freight Corridor',
+            distanceKm: distanceKm || 42.4,
+            vrpDieselReductionPct: 18,
+            dieselConsumedLiters: Number(((distanceKm || 42.4) * 0.28).toFixed(1)),
+            facilityName: matchedFacility?.name || 'Ludhiana Biochar Industrial Sink Ltd.',
+            facilityLocation: matchedFacility?.address || 'Focal Point Phase-VIII, Ludhiana',
+            kilnType: 'Continuous High-Temperature Slow Pyrolysis Retort Unit #3',
+            kilnTempC: 650,
+            conversionYieldPct: 32.0,
+            biocharYieldTons: Number((listing.quantityTons * 0.32).toFixed(1)),
+            syngasRecoveryKWh: 4200,
+            fixedCarbonPct: 78.4,
+            hToCRatio: 0.38,
+            permanenceYears: 100,
+            avoidedLandfillCO2e: Number((listing.quantityTons * 0.98).toFixed(1)),
+            durableStorageCO2e: Number((listing.quantityTons * 0.32 * 0.784 * (44 / 12)).toFixed(1)),
+            transportDeductionCO2e: Number(((distanceKm || 42.4) * 0.000162 * listing.quantityTons).toFixed(1)),
+            processDeductionCO2e: 1.2,
+            netCO2eBenefit: Number(avoidedCO2e) || 82.4,
+            carbonCreditsMinted: Math.round(Number(avoidedCO2e) * 1.4) || 115,
+            sha256Hash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+            timestampSealed: new Date().toISOString(),
+            verraStandard: 'Verra VM0044 Biochar & IPCC Tier 2 Solid Waste Protocol',
+          }}
+          onClose={() => setShowPassportModal(false)}
+          onOpenCertificate={() => {
+            setShowPassportModal(false)
+            setShowCertificateModal(true)
+          }}
         />
       )}
     </div>

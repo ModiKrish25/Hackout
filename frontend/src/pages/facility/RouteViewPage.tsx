@@ -5,7 +5,6 @@ import {
   Navigation,
   MapPin,
   Clock,
-  Truck,
   Play,
   CheckCircle2,
   Sparkles,
@@ -18,6 +17,7 @@ import {
 import { mockDb } from '../../api/mockData'
 import { useAuth } from '../../context/AuthContext'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
+import { AnimatedRouteMap } from '../../components/map/AnimatedRouteMap'
 import { StatCard } from '../../components/shared/StatCard'
 import toast from 'react-hot-toast'
 
@@ -30,6 +30,7 @@ export const RouteViewPage: React.FC = () => {
   const selectedDate = date || defaultDate
   const [currentDate, setCurrentDate] = useState(selectedDate)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [routeDisplayMode, setRouteDisplayMode] = useState<'simulator' | 'static'>('simulator')
 
   const route = mockDb.getRoute(user?.id || 201, currentDate)
 
@@ -438,30 +439,75 @@ export const RouteViewPage: React.FC = () => {
 
         {/* Right Column: Interactive Leaflet Map with Depot Marker, Numbered Stops, & Directional Polyline */}
         <div className="lg:col-span-7 glass-panel rounded-2xl p-5 sm:p-6 space-y-4 border border-slate-200/90 shadow-sm bg-white/90">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 gap-2">
             <div>
               <h2 className="text-base font-bold text-slate-900 font-heading">
                 Interactive GIS Route Trajectory &amp; Turn Sequence
               </h2>
               <p className="text-xs text-slate-500">
-                Turn-by-turn collection sequence with directional pickup arrows and depot anchor
+                Turn-by-turn collection sequence with directional pickup arrows and real-time transit simulation
               </p>
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
-              <Truck className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Fleet Route Active</span>
+
+            {/* Display Mode Switcher */}
+            <div className="flex items-center rounded-xl bg-slate-100 p-0.5 border border-slate-200 text-xs">
+              <button
+                type="button"
+                onClick={() => setRouteDisplayMode('simulator')}
+                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  routeDisplayMode === 'simulator'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                ⚡ Live Animated Transit
+              </button>
+              <button
+                type="button"
+                onClick={() => setRouteDisplayMode('static')}
+                className={`px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                  routeDisplayMode === 'static'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                📍 Static Waypoints
+              </button>
             </div>
           </div>
 
           <div className="w-full">
-            <MapView
-              center={[12.96, 77.6]}
-              zoom={12}
-              height="520px"
-              markers={mapMarkers}
-              polyline={route?.polylineCoordinates}
-              fitBoundsToMarkers={true}
-            />
+            {routeDisplayMode === 'simulator' ? (
+              <AnimatedRouteMap
+                origin={{
+                  name: 'BioVeda Central Depot',
+                  lat: 12.9856,
+                  lng: 77.5833,
+                  type: 'depot',
+                }}
+                destination={{
+                  name: 'BioVeda Pit Return & Weighbridge',
+                  lat: 12.9856,
+                  lng: 77.5833,
+                  type: 'depot',
+                }}
+                totalDistanceKm={optimizedDistance}
+                baselineDistanceKm={unoptimizedDistance}
+                distanceSavedPct={distanceSavedPct}
+                vehicleName="Eicher Pro 3019 (16T Biomass Hauler)"
+                driverName="Karanveer Singh (KA-01-E-4421)"
+                height="540px"
+              />
+            ) : (
+              <MapView
+                center={[12.96, 77.6]}
+                zoom={12}
+                height="540px"
+                markers={mapMarkers}
+                polyline={route?.polylineCoordinates}
+                fitBoundsToMarkers={true}
+              />
+            )}
           </div>
         </div>
       </div>

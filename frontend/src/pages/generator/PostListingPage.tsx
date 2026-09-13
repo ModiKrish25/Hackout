@@ -22,6 +22,7 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useAuth } from '../../context/AuthContext'
 import { api } from '../../api/axiosInstance'
+import { AIPathwayCard } from '../../components/carbon/AIPathwayCard'
 import toast from 'react-hot-toast'
 
 // Zod schema for Waste Listing
@@ -129,6 +130,7 @@ export const PostListingPage: React.FC = () => {
   const watchedLng = watch('locationLng')
   const watchedWasteType = watch('wasteType')
   const watchedQuantity = watch('quantityTons') || 0
+  const watchedMoisture = watch('moistureContent') || 15
 
   // React Query Mutation with instant toast feedback & cache invalidation
   const createListingMutation = useMutation({
@@ -312,6 +314,19 @@ export const PostListingPage: React.FC = () => {
                 <p className="text-[11px] text-slate-400">Determines digester vs pyrolysis suitability</p>
               )}
             </div>
+          </div>
+
+          {/* AI Automated Pathway Recommendation Widget (§AI USP) */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-slate-900 border border-slate-800 text-white shadow-md">
+            <AIPathwayCard
+              input={{
+                wasteType: watchedWasteType,
+                quantityTons: watchedQuantity > 0 ? watchedQuantity : 50,
+                moisturePercent: Number(watchedMoisture) || 15,
+                distanceKm: 35,
+              }}
+              compact={true}
+            />
           </div>
 
           {/* 3. Availability Date Window */}

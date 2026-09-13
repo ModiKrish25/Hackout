@@ -8,12 +8,14 @@ import {
   ChevronUp,
   TreePine,
   Car,
+  Sparkles,
 } from 'lucide-react'
 import {
   calculateCarbonImpact,
   type ConversionPathwayType,
   WASTE_CARBON_FACTORS,
 } from '../../utils/carbonEngine'
+import { AIPathwayCard } from './AIPathwayCard'
 
 interface CarbonCalculatorModalProps {
   initialWasteType?: string
@@ -34,6 +36,7 @@ export const CarbonCalculatorModal: React.FC<CarbonCalculatorModalProps> = ({
   const [distanceKm, setDistanceKm] = useState<number>(initialDistance)
   const [moisturePercent, setMoisturePercent] = useState<number>(15)
   const [showMethodology, setShowMethodology] = useState<boolean>(false)
+  const [showAIRecs, setShowAIRecs] = useState<boolean>(true)
 
   // Calculate live results via scientific engine
   const result = calculateCarbonImpact({
@@ -136,6 +139,37 @@ export const CarbonCalculatorModal: React.FC<CarbonCalculatorModalProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* AI Pathway Recommendation Advisor Widget (§AI USP) */}
+              <div className="p-3.5 rounded-2xl bg-slate-900 border border-slate-800 text-white shadow-md">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs">
+                  <span className="font-bold text-emerald-400 flex items-center gap-1.5 font-heading">
+                    <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                    <span>AI Waste Pathway Advisor</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAIRecs(!showAIRecs)}
+                    className="text-[11px] text-slate-400 hover:text-white transition-colors cursor-pointer font-semibold"
+                  >
+                    {showAIRecs ? 'Hide Recommendations' : 'Show Recommendations'}
+                  </button>
+                </div>
+                {showAIRecs && (
+                  <AIPathwayCard
+                    input={{
+                      wasteType,
+                      quantityTons,
+                      distanceKm,
+                      moisturePercent,
+                    }}
+                    selectedPathway={pathway}
+                    onSelectPathway={(p) => setPathway(p)}
+                    showTitle={false}
+                    compact={true}
+                  />
+                )}
               </div>
 
               {/* Quantity Slider */}

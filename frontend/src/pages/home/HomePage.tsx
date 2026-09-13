@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { HeroSection } from '../../components/home/HeroSection'
 import { ArchitecturePipelineSection } from '../../components/home/ArchitecturePipelineSection'
+import { BeforeAfterComparison } from '../../components/home/BeforeAfterComparison'
+import { JudgeDemoModal } from '../../components/demo/JudgeDemoModal'
 import { Link } from 'react-router-dom'
 import {
   Recycle,
@@ -8,16 +10,61 @@ import {
   ShieldCheck,
   ChevronRight,
   Sparkles,
+  Zap,
+  Play,
 } from 'lucide-react'
 
 export const HomePage: React.FC = () => {
+  const [showJudgeDemo, setShowJudgeDemo] = useState(false)
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-800 font-sans flex flex-col">
       {/* Hero Section */}
       <HeroSection />
 
+      {/* Hackathon Judge Banner / Interactive Live Pitch Demo CTA */}
+      <div className="bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 border-y border-emerald-500/30 py-4 px-4 sm:px-6 relative overflow-hidden">
+        <div className="absolute top-0 right-1/4 w-96 h-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4 relative z-10">
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 shadow-lg shadow-emerald-500/10">
+              <Zap className="h-5 w-5 animate-pulse" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-white uppercase tracking-wider font-heading">
+                  Hackathon Live Evaluation Mode
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  For Presentation Judges
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                Experience the 5-Engine Value Chain in action (Farm 📍 &rarr; 🚛 Animated 42 km Route &rarr; Facility 📍 &rarr; +82.4 tCO₂e Carbon Ledger &amp; Digital Passport).
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowJudgeDemo(true)}
+            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer hover:scale-105 active:scale-95"
+          >
+            <Play className="h-4 w-4 fill-current" />
+            <span>⚡ Launch 60-Sec Judge Pitch Demo</span>
+          </button>
+        </div>
+      </div>
+
       {/* Proposed Architectural Enhancements Interactive Pipeline */}
       <ArchitecturePipelineSection />
+
+      {/* Component 5: "Before vs After" System Comparison Visualizer (§Presentation Slide) */}
+      <section className="py-12 px-4 sm:px-6 lg:px-8 bg-slate-950 border-t border-slate-900">
+        <div className="max-w-7xl mx-auto">
+          <BeforeAfterComparison />
+        </div>
+      </section>
 
       {/* Value Chain Showcase Section in Clean White, Light Green & Shades of Gray */}
       <section className="bg-slate-50 py-16 px-4 sm:px-6 lg:px-8">
@@ -140,6 +187,11 @@ export const HomePage: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Central 60-Second Interactive Judge Pitch Demo Modal */}
+      {showJudgeDemo && (
+        <JudgeDemoModal onClose={() => setShowJudgeDemo(false)} />
+      )}
     </div>
   )
 }
