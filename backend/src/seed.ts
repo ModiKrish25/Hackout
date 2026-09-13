@@ -120,6 +120,8 @@ async function bootstrap() {
                 locationLng: 77.5197, // Peenya Industrial Area
             },
             facility: {
+                name: 'CleanBio Anaerobic Digester',
+                address: 'Peenya Industrial Area Stage 2, Bengaluru, Karnataka 560058',
                 facilityType: FacilityType.BIOGAS,
                 acceptedWasteTypes: [WasteType.FOOD, WasteType.MANURE],
                 capacityTonsPerWeek: 300.0,
@@ -141,6 +143,8 @@ async function bootstrap() {
                 locationLng: 77.7200, // Mahadevapura
             },
             facility: {
+                name: 'East Green Biogas Plant',
+                address: 'Mahadevapura Industrial Layout, Outer Ring Rd, Bengaluru 560048',
                 facilityType: FacilityType.BIOGAS,
                 acceptedWasteTypes: [WasteType.FOOD, WasteType.INDUSTRIAL_ORGANIC],
                 capacityTonsPerWeek: 250.0,
@@ -162,6 +166,8 @@ async function bootstrap() {
                 locationLng: 77.6200, // Bommasandra
             },
             facility: {
+                name: 'BioCarbon High-Temp Pyrolysis Hub',
+                address: 'Bommasandra Industrial Area Phase 1, Hosur Road, Bengaluru 560099',
                 facilityType: FacilityType.BIOCHAR,
                 acceptedWasteTypes: [WasteType.AGRICULTURAL, WasteType.INDUSTRIAL_ORGANIC],
                 capacityTonsPerWeek: 180.0,
@@ -183,6 +189,8 @@ async function bootstrap() {
                 locationLng: 77.5689, // Malleshwaram
             },
             facility: {
+                name: 'City Aerobic Compost Plant',
+                address: '15th Cross, 8th Main Rd, Malleshwaram West, Bengaluru 560003',
                 facilityType: FacilityType.COMPOSTING,
                 acceptedWasteTypes: [WasteType.FOOD, WasteType.AGRICULTURAL, WasteType.MANURE],
                 capacityTonsPerWeek: 400.0,
@@ -206,11 +214,30 @@ async function bootstrap() {
         let fac = existingFacilities.find((f) => f.operatorId === opUser.id);
         if (!fac) {
             fac = await facilitiesService.create(opUser.id, item.facility);
-            console.log(` Created Facility: ${item.user.name} (${item.facility.facilityType}) -> Capacity: ${item.facility.capacityTonsPerWeek} T/week`);
+            console.log(` Created Facility: ${item.facility.name || item.user.name} (${item.facility.facilityType}) -> Capacity: ${item.facility.capacityTonsPerWeek} T/week`);
         } else {
             console.log(` Facility already exists: ${item.user.name}`);
         }
         seededFacilities.push({ operator: opUser, facility: fac });
+    }
+
+    console.log('\n--- 2b. Seeding Municipality User in Bangalore ---');
+    let municipalUser = await usersService.findByEmail('municipality@example.com');
+    if (!municipalUser) {
+        municipalUser = await usersService.create({
+            name: 'BBMP Municipal Corporation',
+            email: 'municipality@example.com',
+            password: 'Password123!',
+            phone: '+91 98765 43230',
+            state: 'Karnataka',
+            city: 'Bengaluru',
+            role: UserRole.MUNICIPALITY,
+            locationLat: 12.9716,
+            locationLng: 77.5946,
+        });
+        console.log(` Created Municipality: ${municipalUser.name} (${municipalUser.email})`);
+    } else {
+        console.log(` Municipality already exists: ${municipalUser.name}`);
     }
 
     console.log('\n--- 3. Seeding 9 Waste Listings across Generators ---');
@@ -221,6 +248,7 @@ async function bootstrap() {
             wasteType: WasteType.AGRICULTURAL,
             quantityTons: 15.0,
             moistureContent: 40.0,
+            address: 'Gate 2, Green Harvest Agro Park, Yelahanka, Bengaluru',
             daysAvailable: 5,
         },
         {
@@ -228,6 +256,7 @@ async function bootstrap() {
             wasteType: WasteType.MANURE,
             quantityTons: 25.0,
             moistureContent: 65.0,
+            address: 'Farmyard Shed 4, Yelahanka Rural, Bengaluru',
             daysAvailable: 4,
         },
         {
@@ -235,6 +264,7 @@ async function bootstrap() {
             wasteType: WasteType.MANURE,
             quantityTons: 35.0,
             moistureContent: 75.0,
+            address: 'Processing Depot B, Rajarajeshwari Nagar, Bengaluru',
             daysAvailable: 7,
         },
         {
@@ -242,6 +272,7 @@ async function bootstrap() {
             wasteType: WasteType.FOOD,
             quantityTons: 12.5,
             moistureContent: 70.0,
+            address: '100ft Road Loading Bay 1, Indiranagar, Bengaluru',
             daysAvailable: 3,
         },
         {
@@ -249,6 +280,7 @@ async function bootstrap() {
             wasteType: WasteType.FOOD,
             quantityTons: 8.0,
             moistureContent: 60.0,
+            address: 'Kitchen Sorting Zone, CMH Road, Indiranagar, Bengaluru',
             daysAvailable: 4,
         },
         {
@@ -256,6 +288,7 @@ async function bootstrap() {
             wasteType: WasteType.FOOD,
             quantityTons: 18.0,
             moistureContent: 65.0,
+            address: 'Wholesale Yard Gate 3, Koramangala 4th Block, Bengaluru',
             daysAvailable: 5,
         },
         {
@@ -263,6 +296,7 @@ async function bootstrap() {
             wasteType: WasteType.INDUSTRIAL_ORGANIC,
             quantityTons: 20.0,
             moistureContent: 30.0,
+            address: 'Spent Grain Silo #2, EPIP Zone, Whitefield, Bengaluru',
             daysAvailable: 6,
         },
         {
@@ -270,6 +304,7 @@ async function bootstrap() {
             wasteType: WasteType.INDUSTRIAL_ORGANIC,
             quantityTons: 14.0,
             moistureContent: 35.0,
+            address: 'Brewery Extraction Dock, Whitefield, Bengaluru',
             daysAvailable: 5,
         },
         {
@@ -277,6 +312,7 @@ async function bootstrap() {
             wasteType: WasteType.AGRICULTURAL,
             quantityTons: 22.0,
             moistureContent: 45.0,
+            address: 'Agritech Compound Gate 1, Electronic City Phase 1, Bengaluru',
             daysAvailable: 8,
         },
     ];
@@ -292,6 +328,7 @@ async function bootstrap() {
             wasteType: spec.wasteType,
             quantityTons: spec.quantityTons,
             moistureContent: spec.moistureContent,
+            address: spec.address,
             locationLat: Number(gen.locationLat),
             locationLng: Number(gen.locationLng),
             availableFrom: availableFrom.toISOString(),

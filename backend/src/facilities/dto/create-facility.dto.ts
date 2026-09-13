@@ -1,10 +1,20 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsArray, ArrayNotEmpty, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive, IsArray, ArrayNotEmpty, Min, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { FacilityType } from '../../common/enums/facility-type.enum';
 import { WasteType } from '../../common/enums/waste-type.enum';
 import { Type } from 'class-transformer';
 
 export class CreateFacilityDto {
+    @ApiPropertyOptional({ description: 'Display name of the facility', example: 'GreenTech Anaerobic Digester' })
+    @IsOptional()
+    @IsString()
+    name?: string;
+
+    @ApiPropertyOptional({ description: 'Physical street address or industrial zone', example: 'Peenya Industrial Area Stage 2, Bengaluru' })
+    @IsOptional()
+    @IsString()
+    address?: string;
+
     @ApiProperty({ description: 'Type of facility', enum: FacilityType, example: FacilityType.BIOGAS })
     @IsEnum(FacilityType)
     @IsNotEmpty()

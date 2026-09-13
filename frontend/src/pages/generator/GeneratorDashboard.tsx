@@ -12,17 +12,54 @@ import {
   Sparkles,
   ArrowUpRight,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
-import { mockDb } from '../../api/mockData'
+import { dashboardService } from '../../services/dashboard.service'
+import { wasteListingService } from '../../services/wasteListing.service'
 import { StatCard } from '../../components/shared/StatCard'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
+import type { WasteListing } from '../../types'
 
 export const GeneratorDashboard: React.FC = () => {
   const { user } = useAuth()
-  const summary = mockDb.getGeneratorSummary(user?.id || 101)
-  const listings = mockDb.getListings()
+
+  // Fetch generator summary
+  const { data: remoteSummary } = useQuery({
+    queryKey: ['generatorSummary', user?.id],
+    queryFn: async () => {
+      try {
+        if (!user?.id) return null
+        return await dashboardService.getGeneratorSummary(user.id)
+      } catch (e) {
+        return null
+      }
+    },
+    enabled: !!user?.id,
+  })
+
+  // Fetch generator listings
+  const { data: remoteListings } = useQuery({
+    queryKey: ['generatorListings', user?.id],
+    queryFn: async () => {
+      try {
+        const res = await wasteListingService.getAllListings(user?.id ? { generatorId: user.id } : undefined)
+        return res
+      } catch (e) {
+        return null
+      }
+    },
+  })
+
+  const listings: WasteListing[] = remoteListings ?? []
   const recentListings = listings.slice(0, 5)
+
+  const summary = {
+    activeListingsCount: remoteSummary?.activeListingsCount ?? remoteSummary?.totalListings ?? listings.length,
+    tonsDivertedAllTime: remoteSummary?.totalTonsDiverted ?? listings.filter((l) => l.status !== 'listed').reduce((sum, l) => sum + (Number(l.quantityTons) || 0), 0),
+    revenueEarned: Math.round((remoteSummary?.totalTonsDiverted ?? listings.filter((l) => l.status !== 'listed').reduce((sum, l) => sum + (Number(l.quantityTons) || 0), 0)) * 850),
+    co2CreditsEarned: Math.round(remoteSummary?.totalCo2CreditEarnedTons ?? ((remoteSummary?.totalTonsDiverted ?? listings.filter((l) => l.status !== 'listed').reduce((sum, l) => sum + (Number(l.quantityTons) || 0), 0)) * 0.31)),
+  }
 
   // Map markers for generator's active and historical waste batches
   const mapMarkers: MapMarkerData[] = listings.map((l) => ({

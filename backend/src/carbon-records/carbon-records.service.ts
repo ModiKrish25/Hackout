@@ -12,6 +12,11 @@ export interface CarbonImpactCalculation {
     co2SequesteredTons: number;
     landfillBaselineEmissionsTons: number;
     netCarbonBenefitTons: number;
+    baselineEmissions: number;
+    storageEmissions: number;
+    transportEmissions: number;
+    processingEmissions: number;
+    netCo2e: number;
 }
 
 export interface CarbonSummaryResult {
@@ -34,6 +39,7 @@ export class CarbonRecordsService {
         wasteType: WasteType,
         conversionPathway: ConversionPathway,
         quantityTons: number,
+        distanceKm: number = 25,
     ): CarbonImpactCalculation {
         const wasteFactors = EMISSION_FACTORS[wasteType] || {
             [conversionPathway]: 0.35,
@@ -43,16 +49,32 @@ export class CarbonRecordsService {
         const sequesteredFactor = wasteFactors[conversionPathway] ?? 0.30;
         const baselineFactor = wasteFactors.landfillBaseline ?? 0.40;
 
-        const co2SequesteredTons = Number((quantityTons * sequesteredFactor).toFixed(4));
-        const landfillBaselineEmissionsTons = Number((quantityTons * baselineFactor).toFixed(4));
-        const netCarbonBenefitTons = Number(
-            (co2SequesteredTons + landfillBaselineEmissionsTons).toFixed(4),
+        // Step 1: Landfill baseline avoided methane emissions (tCO2e)
+        const baselineEmissions = Number((quantityTons * baselineFactor).toFixed(4));
+
+        // Step 2: Durable carbon storage via pyrolysis/digestion (tCO2e with 44/12 C->CO2 stoichiometry)
+        const storageEmissions = Number((quantityTons * sequesteredFactor).toFixed(4));
+
+        // Step 3: Logistics transport deduction (tCO2e)
+        const transportEmissions = Number(((distanceKm * 2 * 0.62) / 1000).toFixed(4));
+
+        // Step 4: Plant processing energy deduction (tCO2e)
+        const processingEmissions = Number(((quantityTons * 15.2) / 1000).toFixed(4));
+
+        // Step 5: Net verified carbon benefit (tCO2e)
+        const netCo2e = Number(
+            Math.max(0, baselineEmissions + storageEmissions - transportEmissions - processingEmissions).toFixed(4),
         );
 
         return {
-            co2SequesteredTons,
-            landfillBaselineEmissionsTons,
-            netCarbonBenefitTons,
+            co2SequesteredTons: storageEmissions,
+            landfillBaselineEmissionsTons: baselineEmissions,
+            netCarbonBenefitTons: netCo2e,
+            baselineEmissions,
+            storageEmissions,
+            transportEmissions,
+            processingEmissions,
+            netCo2e,
         };
     }
 
@@ -79,6 +101,11 @@ export class CarbonRecordsService {
             co2SequesteredTons: impact.co2SequesteredTons,
             landfillBaselineEmissionsTons: impact.landfillBaselineEmissionsTons,
             netCarbonBenefitTons: impact.netCarbonBenefitTons,
+            baselineEmissions: impact.baselineEmissions,
+            storageEmissions: impact.storageEmissions,
+            transportEmissions: impact.transportEmissions,
+            processingEmissions: impact.processingEmissions,
+            netCo2e: impact.netCo2e,
         });
 
         return this.carbonRecordRepository.save(record);

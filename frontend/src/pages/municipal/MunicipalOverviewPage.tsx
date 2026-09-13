@@ -25,7 +25,8 @@ import {
   YAxis,
   CartesianGrid,
 } from 'recharts'
-import { mockDb } from '../../api/mockData'
+import { useQuery } from '@tanstack/react-query'
+import { dashboardService } from '../../services/dashboard.service'
 import { MapView, type MapMarkerData } from '../../components/map/MapView'
 import { StatCard } from '../../components/shared/StatCard'
 
@@ -51,8 +52,71 @@ const DONUT_COLORS = {
 
 export const MunicipalOverviewPage: React.FC = () => {
   const [heatmapEnabled, setHeatmapEnabled] = useState(true)
-  const summary = mockDb.getMunicipalSummary()
-  const mapData = mockDb.getMunicipalMapData()
+
+  const { data: remoteSummary } = useQuery({
+    queryKey: ['municipal-summary'],
+    queryFn: async () => {
+      try {
+        return await dashboardService.getMunicipalSummary()
+      } catch (e) {
+        return null
+      }
+    },
+  })
+
+  const { data: remoteMapData } = useQuery({
+    queryKey: ['municipal-map-data'],
+    queryFn: async () => {
+      try {
+        return await dashboardService.getMunicipalMapData()
+      } catch (e) {
+        return null
+      }
+    },
+  })
+
+  const summary = {
+    totalTonsDiverted: remoteSummary?.totalTonsProcessed ?? 0,
+    totalCo2SequesteredTons: Math.round(remoteSummary?.totalCo2SequesteredTons ?? 0),
+    totalFacilitiesActive: remoteSummary?.totalFacilities ?? remoteMapData?.facilities?.length ?? 0,
+    totalGeneratorsParticipating: remoteSummary?.totalListings ?? remoteMapData?.listings?.length ?? 0,
+    carsOffTheRoadEquivalent: Math.round((remoteSummary?.totalCo2SequesteredTons ?? 0) * 0.217),
+    matchesByStatus: Object.entries(remoteSummary?.matchesByStatus || { pending: 0, scheduled: 0, collected: 0, processed: 0 }).map(([status, count]) => ({
+      status,
+      count: count as number,
+    })),
+  }
+
+  const mapData = {
+    facilities: (remoteMapData?.facilities || []).map((f: any) => ({
+      id: f.id,
+      name: f.operatorName || 'Bio-Plant',
+      facilityType: f.facilityType,
+      acceptedWasteTypes: f.acceptedWasteTypes || ['food', 'agricultural'],
+      weeklyCapacityTons: f.capacityTonsPerWeek,
+      currentUtilizationTons: f.currentUtilization,
+      locationLat: f.locationLat,
+      locationLng: f.locationLng,
+      address: 'Bengaluru Facility Hub',
+      userId: f.operatorId,
+    })),
+    listings: (remoteMapData?.listings || []).map((l: any) => ({
+      id: l.id,
+      generatorId: l.generatorId,
+      generatorName: l.generatorName,
+      wasteType: l.wasteType,
+      quantityTons: l.quantityTons,
+      moistureContent: l.moistureContent,
+      availableFrom: l.availableFrom,
+      availableTo: l.availableTo,
+      locationLat: l.locationLat,
+      locationLng: l.locationLng,
+      status: l.status,
+      address: (l as any).address || 'Regional Pickup Node',
+      createdAt: l.availableFrom,
+    })),
+    heatPoints: (remoteMapData?.listings || []).map((l: any) => [l.locationLat, l.locationLng, Math.min(1, l.quantityTons / 30)] as [number, number, number]),
+  }
 
   // Convert facilities and listings to map markers
   const markers: MapMarkerData[] = [
@@ -62,7 +126,7 @@ export const MunicipalOverviewPage: React.FC = () => {
       lng: f.locationLng,
       type: 'facility' as const,
       title: f.name,
-      subtitle: `${f.address} &bull; Intake: ${f.weeklyCapacityTons} t/wk`,
+      subtitle: `${f.address || 'Bengaluru Plant'} &bull; Intake: ${f.weeklyCapacityTons} t/wk`,
       status: 'Active Bio-Plant',
     })),
     ...mapData.listings.map((l) => ({
@@ -71,7 +135,7 @@ export const MunicipalOverviewPage: React.FC = () => {
       lng: l.locationLng,
       type: 'generator' as const,
       title: l.generatorName || 'Organic Producer',
-      subtitle: l.address,
+      subtitle: l.address || 'Regional Pickup Node',
       quantityTons: l.quantityTons,
       wasteType: l.wasteType,
       status: l.status,
@@ -79,7 +143,7 @@ export const MunicipalOverviewPage: React.FC = () => {
   ]
 
   // Donut chart dataset
-  const donutData = summary.matchesByStatus.map((item) => ({
+  const donutData = summary.matchesByStatus.map((item: { status: string; count: number }) => ({
     name: item.status.charAt(0).toUpperCase() + item.status.slice(1),
     value: item.count,
     color: DONUT_COLORS[item.status as keyof typeof DONUT_COLORS] || '#10b981',
@@ -254,7 +318,7 @@ export const MunicipalOverviewPage: React.FC = () => {
                   paddingAngle={4}
                   dataKey="value"
                 >
-                  {donutData.map((entry, index) => (
+                  {donutData.map((entry: any, index: number) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>

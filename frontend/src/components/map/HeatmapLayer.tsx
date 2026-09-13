@@ -38,11 +38,11 @@ export const HeatmapLayer: React.FC<HeatmapLayerProps> = ({
     if (!map || !points || points.length === 0) return
 
     // Format points to [lat, lng, intensity]
-    const formattedPoints: [number, number, number][] = points.map((p) => {
+    const formattedPoints: [number, number, number][] = points.map((p): [number, number, number] => {
       if (Array.isArray(p)) {
-        return [p[0], p[1], p[2] ?? 0.5]
+        return [Number(p[0]), Number(p[1]), Number(p[2] ?? 0.5)]
       }
-      return [p.lat, p.lng, p.intensity ?? 0.5]
+      return [Number(p.lat), Number(p.lng), Number(p.intensity ?? 0.5)]
     })
 
     // Check if L.heatLayer is available from leaflet.heat

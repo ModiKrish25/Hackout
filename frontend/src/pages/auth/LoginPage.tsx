@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import {
   CheckCircle2,
@@ -160,10 +161,10 @@ export const LoginPage: React.FC = () => {
         {/* Brand Header */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-1 flex items-center justify-center shadow-inner">
-            <img src="/logo.png" alt="EcoTrace Logo" className="h-full w-full object-contain" />
+            <img src="/logo.png" alt="Waste2Carbon Logo" className="h-full w-full object-contain" />
           </div>
           <span className="font-extrabold text-xl tracking-tight text-white font-heading">
-            EcoTrace
+            Waste<span className="text-emerald-400">2Carbon</span>
           </span>
         </div>
 
@@ -362,59 +363,76 @@ export const LoginPage: React.FC = () => {
               <Zap className="h-3.5 w-3.5 text-emerald-600" />
               <span>Quick Demo (CleanBio Biogas Facility)</span>
             </button>
+            <button
+              type="button"
+              onClick={() => handleQuickDemoLogin('municipality@example.com')}
+              disabled={isSubmitting}
+              className="w-full py-2.5 px-4 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 font-semibold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-2xs"
+            >
+              <Zap className="h-3.5 w-3.5 text-blue-600" />
+              <span>Quick Demo (BBMP Municipal Corporation)</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Forgot Password Modal */}
-      {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-4">
-            <button
-              onClick={() => setShowForgotModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+      {showForgotModal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+            onClick={() => setShowForgotModal(false)}
+          >
+            <div
+              className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
             >
-              <X className="h-4 w-4" />
-            </button>
+              <button
+                onClick={() => setShowForgotModal(false)}
+                className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
 
-            <h3 className="text-lg font-extrabold text-slate-900 font-heading">
-              Reset your password
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Enter your registered email address to receive password reset instructions.
-            </p>
+              <h3 className="text-lg font-extrabold text-slate-900 font-heading">
+                Reset your password
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Enter your registered email address to receive password reset instructions.
+              </p>
 
-            <form onSubmit={handleSendReset} className="space-y-3 pt-2">
-              <input
-                type="email"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                placeholder="name@example.com"
-                className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600"
-              />
-              {forgotEmailError && (
-                <p className="text-[11px] text-red-500">{forgotEmailError}</p>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotModal(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSendingReset}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#1b5e39] hover:bg-[#154c2e]"
-                >
-                  {isSendingReset ? 'Sending...' : 'Send Reset Link'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <form onSubmit={handleSendReset} className="space-y-3 pt-2">
+                <input
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  className="w-full px-3.5 py-2.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-600"
+                />
+                {forgotEmailError && (
+                  <p className="text-[11px] text-red-500">{forgotEmailError}</p>
+                )}
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotModal(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSendingReset}
+                    className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#1b5e39] hover:bg-[#154c2e]"
+                  >
+                    {isSendingReset ? 'Sending...' : 'Send Reset Link'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   )
 }

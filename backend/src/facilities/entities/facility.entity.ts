@@ -14,6 +14,12 @@ export class Facility {
     @JoinColumn({ name: 'operatorId' })
     operator: User;
 
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    name: string | null;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    address: string | null;
+
     @Column({
         type: 'enum',
         enum: FacilityType,

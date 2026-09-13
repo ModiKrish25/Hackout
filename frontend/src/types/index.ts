@@ -46,6 +46,7 @@ export interface WasteListing {
   locationLng: number
   address?: string
   status: ListingStatus
+  batchId?: string
   matchedFacilityId?: number
   matchedFacilityName?: string
   matchId?: number
@@ -79,6 +80,7 @@ export interface Match {
   matchScore: number
   status: MatchStatus
   scheduledDate?: string
+  address?: string
   listing?: WasteListing
   facility?: Facility
   createdAt: string

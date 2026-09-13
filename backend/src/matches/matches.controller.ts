@@ -50,38 +50,44 @@ export class MatchesController {
     }
 
     @Patch(':id/confirm')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.FACILITY, UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Confirm a pending match (Facility operator only -> schedules match and increments utilization)',
     })
     @ApiResponse({ status: 200, description: 'Match confirmed and scheduled' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    @ApiResponse({ status: 403, description: 'Forbidden: Caller is not the facility operator' })
     @ApiResponse({ status: 404, description: 'Match not found' })
     confirm(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
         return this.matchesService.confirm(id, user);
     }
 
+    @Patch(':id/collect')
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({
+        summary: 'Mark match as collected by logistics fleet/weighbridge',
+    })
+    @ApiResponse({ status: 200, description: 'Match marked collected' })
+    collect(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
+        return this.matchesService.collect(id, user);
+    }
+
     @Patch(':id/process')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.FACILITY, UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Process a match (Facility operator only -> marks processed and automatically creates CarbonRecord)',
     })
     @ApiResponse({ status: 200, description: 'Match processed and CarbonRecord generated' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
-    @ApiResponse({ status: 403, description: 'Forbidden: Caller is not the facility operator' })
     @ApiResponse({ status: 404, description: 'Match not found' })
     process(@Param('id', ParseIntPipe) id: number, @GetUser() user: User) {
         return this.matchesService.process(id, user);
     }
 
     @Patch(':id/reject')
-    @UseGuards(JwtAuthGuard, RolesGuard)
-    @Roles(UserRole.FACILITY, UserRole.ADMIN)
+    @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
     @ApiOperation({
         summary: 'Reject a pending match (Reverts listing back to listed status and removes match)',

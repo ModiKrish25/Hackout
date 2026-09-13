@@ -440,10 +440,10 @@ export const RegisterPage: React.FC = () => {
         {/* Brand Header */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 p-1 flex items-center justify-center shadow-inner">
-            <img src="/logo.png" alt="EcoTrace Logo" className="h-full w-full object-contain" />
+            <img src="/logo.png" alt="Waste2Carbon Logo" className="h-full w-full object-contain" />
           </div>
           <span className="font-extrabold text-xl tracking-tight text-white font-heading">
-            EcoTrace
+            Waste<span className="text-emerald-400">2Carbon</span>
           </span>
         </div>
 

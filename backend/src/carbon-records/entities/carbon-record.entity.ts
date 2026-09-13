@@ -56,6 +56,46 @@ export class CarbonRecord {
     })
     netCarbonBenefitTons: number;
 
+    @Column({
+        type: 'decimal',
+        precision: 10,
+        scale: 4,
+        default: 0,
+    })
+    baselineEmissions: number;
+
+    @Column({
+        type: 'decimal',
+        precision: 10,
+        scale: 4,
+        default: 0,
+    })
+    storageEmissions: number;
+
+    @Column({
+        type: 'decimal',
+        precision: 10,
+        scale: 4,
+        default: 0,
+    })
+    transportEmissions: number;
+
+    @Column({
+        type: 'decimal',
+        precision: 10,
+        scale: 4,
+        default: 0,
+    })
+    processingEmissions: number;
+
+    @Column({
+        type: 'decimal',
+        precision: 10,
+        scale: 4,
+        default: 0,
+    })
+    netCo2e: number;
+
     @CreateDateColumn({ type: 'timestamp' })
     createdAt: Date;
 }

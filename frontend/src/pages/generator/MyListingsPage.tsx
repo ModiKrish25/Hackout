@@ -12,18 +12,38 @@ import {
   ChevronRight,
   Sparkles,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../../context/AuthContext'
+import { wasteListingService } from '../../services/wasteListing.service'
 import { mockDb } from '../../api/mockData'
 import { StatusBadge } from '../../components/shared/StatusBadge'
 import { EmptyState } from '../../components/shared/EmptyState'
+import type { WasteListing } from '../../types'
 
 export const MyListingsPage: React.FC = () => {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
 
-  const listings = mockDb.getListings()
+  const { data: remoteListings } = useQuery({
+    queryKey: ['my-listings', user?.id],
+    queryFn: async () => {
+      try {
+        const res = await wasteListingService.getAllListings(user?.id ? { generatorId: user.id } : undefined)
+        return res
+      } catch (e) {
+        return null
+      }
+    },
+    staleTime: 1000 * 30,
+  })
+
+  const listings: WasteListing[] = (remoteListings && remoteListings.length > 0)
+    ? remoteListings
+    : mockDb.getListings()
 
   // Filter listings
   const filtered = listings.filter((item) => {

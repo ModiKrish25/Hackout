@@ -15,7 +15,7 @@ export const MainLayout: React.FC = () => {
       </div>
       <footer className="glass-panel border-t border-slate-200/80 py-3.5 px-6 mt-auto">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
-          <span>Waste-to-Carbon-Value Chain Tracker &bull; EcoTrace</span>
+          <span>Waste-to-Carbon Value Chain Tracker &bull; EcoTrace</span>
           <span>Verified Carbon Ingestion &amp; GIS Logistics Platform</span>
         </div>
       </footer>

@@ -139,13 +139,27 @@ const HERO_DATA: Record<'generator' | 'facility' | 'municipality', RoleHeroData>
 }
 
 export const HeroSection: React.FC = () => {
-  const { role: activeAuthRole, switchRoleForDemo } = useAuth()
+  const { role: activeAuthRole, isAuthenticated, user } = useAuth()
   const navigate = useNavigate()
 
-  // Selected hero mode: generator, facility, or municipality
+  // Allow interactive role switching on the hero with default to auth role or generator
   const [selectedRole, setSelectedRole] = useState<'generator' | 'facility' | 'municipality'>(
-    activeAuthRole === 'generator' ? 'generator' : activeAuthRole === 'municipality' ? 'municipality' : 'facility'
+    activeAuthRole === 'facility'
+      ? 'facility'
+      : activeAuthRole === 'municipality' || activeAuthRole === 'admin'
+      ? 'municipality'
+      : 'generator'
   )
+
+  useEffect(() => {
+    if (activeAuthRole === 'facility') {
+      setSelectedRole('facility')
+    } else if (activeAuthRole === 'municipality' || activeAuthRole === 'admin') {
+      setSelectedRole('municipality')
+    } else if (activeAuthRole === 'generator') {
+      setSelectedRole('generator')
+    }
+  }, [activeAuthRole])
 
   const currentHero = HERO_DATA[selectedRole]
 
@@ -175,14 +189,18 @@ export const HeroSection: React.FC = () => {
     return () => clearInterval(interval)
   }, [currentHero.headlines.length, selectedRole])
 
-  const handleRoleSelect = (role: 'generator' | 'facility' | 'municipality') => {
-    setSelectedRole(role)
-    switchRoleForDemo(role)
-  }
-
   const handleLaunchCTA = () => {
-    switchRoleForDemo(selectedRole)
-    navigate(currentHero.ctaLink)
+    if (isAuthenticated && activeAuthRole) {
+      if (activeAuthRole === 'generator') {
+        navigate('/generator/dashboard')
+      } else if (activeAuthRole === 'facility') {
+        navigate('/facility/dashboard')
+      } else if (activeAuthRole === 'municipality' || activeAuthRole === 'admin') {
+        navigate('/municipal/overview')
+      }
+    } else {
+      navigate('/login')
+    }
   }
 
   return (
@@ -211,66 +229,74 @@ export const HeroSection: React.FC = () => {
         }}
       />
 
-      {/* Top Header Navigation (Image 1 Structure with Image 2 Logo) */}
+      {/* Top Header Navigation */}
       <header className="relative z-30 w-full border-b border-white/15 backdrop-blur-md bg-black/25 px-4 sm:px-8 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Logo from Image 2 */}
+          {/* EcoTrace Brand Logo */}
           <Link to="/" className="flex items-center gap-3 group">
-            <div className="h-12 w-12 rounded-full p-1 bg-white/20 backdrop-blur-md border border-white/30 shadow-lg group-hover:scale-105 transition-transform flex items-center justify-center overflow-hidden">
+            <div className="h-11 w-11 rounded-2xl p-1 bg-white/20 backdrop-blur-md border border-white/30 shadow-lg group-hover:scale-105 transition-transform flex items-center justify-center overflow-hidden">
               <img
                 src="/logo.png"
-                alt="EcoTrace Recycling Hub Logo"
+                alt="EcoTrace Logo"
                 className="h-full w-full object-contain"
               />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold text-lg sm:text-xl tracking-wider uppercase font-heading text-white drop-shadow-md">
-                  RECYCLING <span className="text-emerald-400">HUB</span>
+                  ECO<span className="text-emerald-400">TRACE</span>
                 </span>
                 <span className="text-[10px] align-super text-emerald-300 font-bold">TM</span>
               </div>
               <p className="text-[10px] text-slate-200 tracking-widest uppercase font-medium drop-shadow-xs">
-                Compliance &amp; Value Chain
+                Waste-to-Carbon Value Chain
               </p>
             </div>
           </Link>
 
           {/* Navigation Links in Center */}
           <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-slate-200">
-            <Link to="/home" className="hover:text-emerald-400 transition-colors text-white">
+            <Link
+              to="/home"
+              className="text-emerald-400 font-bold border-b-2 border-emerald-400 pb-0.5"
+            >
               Home
             </Link>
-            <button
-              onClick={() => handleRoleSelect('generator')}
-              className={`hover:text-emerald-400 transition-colors cursor-pointer ${
-                selectedRole === 'generator' ? 'text-emerald-400 font-bold underline underline-offset-4' : ''
-              }`}
-            >
-              Generator Hub
-            </button>
-            <button
-              onClick={() => handleRoleSelect('facility')}
-              className={`hover:text-emerald-400 transition-colors cursor-pointer ${
-                selectedRole === 'facility' ? 'text-emerald-400 font-bold underline underline-offset-4' : ''
-              }`}
-            >
-              Facility Operations
-            </button>
-            <button
-              onClick={() => handleRoleSelect('municipality')}
-              className={`hover:text-emerald-400 transition-colors cursor-pointer ${
-                selectedRole === 'municipality' ? 'text-emerald-400 font-bold underline underline-offset-4' : ''
-              }`}
-            >
-              Municipal Oversight
-            </button>
-            <Link to="/municipal/reports" className="hover:text-emerald-400 transition-colors">
-              Audit Reports
-            </Link>
+
+            {isAuthenticated ? (
+              <>
+                <Link
+                  to={
+                    activeAuthRole === 'facility'
+                      ? '/facility/dashboard'
+                      : activeAuthRole === 'municipality' || activeAuthRole === 'admin'
+                      ? '/municipal/overview'
+                      : '/generator/dashboard'
+                  }
+                  className="text-slate-300 hover:text-white transition-colors"
+                >
+                  My Dashboard
+                </Link>
+                <Link
+                  to="/profile"
+                  className="text-slate-300 hover:text-white transition-colors"
+                >
+                  Profile &amp; GPS
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/login" className="text-slate-300 hover:text-emerald-400 transition-colors">
+                  Sign In
+                </Link>
+                <Link to="/register" className="text-slate-300 hover:text-emerald-400 transition-colors">
+                  Create Account
+                </Link>
+              </>
+            )}
           </nav>
 
-          {/* Right Section: Phone (+91 7778040173 as in Image 1) + Launch Portal */}
+          {/* Right Section: Phone + Launch Portal */}
           <div className="flex items-center gap-3 sm:gap-4">
             <a
               href="tel:+917778040173"
@@ -293,47 +319,18 @@ export const HeroSection: React.FC = () => {
 
       {/* Main Hero Center */}
       <div className="relative z-20 max-w-5xl mx-auto w-full px-4 sm:px-6 py-10 md:py-14 flex flex-col items-center text-center space-y-6">
-        {/* 3-Role Interactive Switcher (Generator / Facility / Municipality) */}
-        <div className="inline-flex items-center p-1.5 rounded-2xl bg-black/50 backdrop-blur-xl border border-white/20 shadow-2xl">
-          <button
-            onClick={() => handleRoleSelect('generator')}
-            className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-              selectedRole === 'generator'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 scale-105'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            Generator
-          </button>
-          <button
-            onClick={() => handleRoleSelect('facility')}
-            className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-              selectedRole === 'facility'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 scale-105'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            Facility
-          </button>
-          <button
-            onClick={() => handleRoleSelect('municipality')}
-            className={`px-4 sm:px-6 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-              selectedRole === 'municipality'
-                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30 scale-105'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            Municipality
-          </button>
-        </div>
-
         {/* Role Persona Tag */}
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-emerald-300 text-xs font-semibold tracking-wide shadow-sm">
           <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
           <span>{currentHero.badge}</span>
+          {isAuthenticated && user && (
+            <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-[10px] text-emerald-300 uppercase font-bold border border-emerald-400/30">
+              Active: {user.role}
+            </span>
+          )}
         </div>
 
-        {/* USER REQUIREMENT: Middle text should change, be related to the role, and blur then change */}
+        {/* Middle text related to the active role that blurs then changes */}
         <div className="min-h-[90px] sm:min-h-[120px] flex items-center justify-center w-full px-2">
           <h1
             className={`text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white font-heading drop-shadow-[0_4px_24px_rgba(0,0,0,0.95)] transition-all duration-500 ease-in-out select-none max-w-4xl ${
@@ -346,50 +343,39 @@ export const HeroSection: React.FC = () => {
           </h1>
         </div>
 
-        {/* Headline Rotation Dots */}
-        <div className="flex items-center gap-2 pt-1">
-          {currentHero.headlines.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => {
-                setIsBlurring(true)
-                setTimeout(() => {
-                  setHeadlineIndex(idx)
-                  setIsBlurring(false)
-                }, 300)
-              }}
-              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                headlineIndex === idx ? 'w-8 bg-emerald-400 shadow-sm shadow-emerald-400/50' : 'w-2 bg-white/40 hover:bg-white/70'
-              }`}
-              title={`View message ${idx + 1}`}
-            />
-          ))}
-        </div>
-
         {/* Subtitle */}
         <p className="max-w-2xl text-xs sm:text-sm md:text-base text-slate-100/90 leading-relaxed drop-shadow-md font-normal">
           {currentHero.subtitle}
         </p>
 
-        {/* Primary Action Button */}
+        {/* Primary Action Buttons */}
         <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
           <button
             onClick={handleLaunchCTA}
             className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm shadow-xl shadow-emerald-500/30 hover:scale-[1.02] transition-all flex items-center gap-2 cursor-pointer"
           >
-            <span>{currentHero.ctaText}</span>
+            <span>{isAuthenticated ? currentHero.ctaText : 'Get Started with Waste2Carbon'}</span>
             <ArrowRight className="h-4 w-4" />
           </button>
-          <Link
-            to="/login"
-            className="px-5 py-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs sm:text-sm border border-white/25 backdrop-blur-md transition-all"
-          >
-            Sign In with Credentials
-          </Link>
+          {!isAuthenticated ? (
+            <Link
+              to="/login"
+              className="px-5 py-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs sm:text-sm border border-white/25 backdrop-blur-md transition-all"
+            >
+              Sign In with Credentials
+            </Link>
+          ) : (
+            <Link
+              to="/profile"
+              className="px-5 py-3 rounded-xl bg-white/15 hover:bg-white/25 text-white font-semibold text-xs sm:text-sm border border-white/25 backdrop-blur-md transition-all"
+            >
+              My Profile
+            </Link>
+          )}
         </div>
       </div>
 
-      {/* USER REQUIREMENT: Bottom 6 Floating Feature Cards tailored to each role */}
+      {/* Bottom 6 Floating Feature Cards tailored to the active role */}
       <div className="relative z-20 w-full px-4 sm:px-6 pb-6 pt-4 max-w-7xl mx-auto">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
           {currentHero.cards.map((card) => {
@@ -398,7 +384,6 @@ export const HeroSection: React.FC = () => {
               <Link
                 key={card.id}
                 to={card.link}
-                onClick={() => switchRoleForDemo(selectedRole)}
                 className={`group relative flex flex-col items-center justify-center text-center p-4 rounded-2xl ${currentHero.cardBg} backdrop-blur-md shadow-xl shadow-black/40 hover:-translate-y-2 hover:shadow-2xl hover:shadow-emerald-500/40 transition-all duration-300 cursor-pointer min-h-[140px]`}
               >
                 {/* Optional Top Badge */}

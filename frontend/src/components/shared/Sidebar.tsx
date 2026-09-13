@@ -16,17 +16,55 @@ import {
   Activity,
 } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
-import { mockDb } from '../../api/mockData'
+import { useQuery } from '@tanstack/react-query'
+import { wasteListingService } from '../../services/wasteListing.service'
+import { matchingService } from '../../services/matching.service'
+import { carbonRecordService } from '../../services/carbonRecord.service'
 
 export const Sidebar: React.FC = () => {
   const { role, user } = useAuth()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
 
-  // Live count badges from mockDb
-  const listingsCount = mockDb.getListings().filter((l) => l.status === 'listed').length
-  const pendingMatchesCount = mockDb.getMatches(user?.id || 201, 'pending').length
-  const carbonRecordsCount = mockDb.getCarbonRecords().length
+  // Live count queries from backend API
+  const { data: listings } = useQuery({
+    queryKey: ['sidebar-listings', user?.id],
+    queryFn: async () => {
+      try {
+        return await wasteListingService.getAllListings(role === 'generator' && user?.id ? { generatorId: user.id } : undefined)
+      } catch {
+        return []
+      }
+    },
+  })
+
+  const { data: matches } = useQuery({
+    queryKey: ['sidebar-matches', user?.id],
+    queryFn: async () => {
+      try {
+        return await matchingService.getAllMatches({ status: 'pending' })
+      } catch {
+        return []
+      }
+    },
+    enabled: role === 'facility' || role === 'municipality',
+  })
+
+  const { data: carbonRecords } = useQuery({
+    queryKey: ['sidebar-carbon-records'],
+    queryFn: async () => {
+      try {
+        return await carbonRecordService.getAll()
+      } catch {
+        return []
+      }
+    },
+    enabled: role === 'municipality' || role === 'admin',
+  })
+
+  const listingsCount = listings?.length ?? 0
+  const pendingMatchesCount = matches?.length ?? 0
+  const carbonRecordsCount = carbonRecords?.length ?? 0
 
   return (
     <aside
